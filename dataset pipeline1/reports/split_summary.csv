@@ -1,0 +1,4 @@
+split,target_ratio,clusters,split_groups,assemblies,replicons,chromosomes,plasmids,total_bp,expected_fragments,expected_fragments_chromosome,expected_fragments_plasmid,actual_fragment_ratio
+train,0.7,594,594,394,612,372,240,1689082120,337512,329785,8030,0.7
+validation,0.15,124,124,105,131,78,53,361891360,72317,70655,1722,0.15
+test,0.15,125,125,112,126,77,49,361984395,72332,70673,1723,0.15

@@ -1,0 +1,46 @@
+﻿verifying k-mer column order
+  canonical 6-mer order matches KMC reference (2080 columns)
+encoded train: 337512 fragments (7915 plasmid) in 20.3s
+encoded validation: 72317 fragments (1696 plasmid) in 4.3s
+encoded test: 72332 fragments (1696 plasmid) in 4.4s
+k=5 canonical=False -> 1024 features
+    feat_train_k5f.u16: 7812/337512
+  train: 0.64 GiB in 123.7s
+    feat_validation_k5f.u16: 7812/72317
+  validation: 0.14 GiB in 15.5s
+    feat_test_k5f.u16: 7812/72332
+  test: 0.14 GiB in 14.9s
+  fitted TF-IDF (smooth_idf=False) on train
+k=6 canonical=False -> 4096 features
+    feat_train_k6f.u16: 1953/337512
+    feat_train_k6f.u16: 197253/337512
+  train: 2.58 GiB in 146.8s
+    feat_validation_k6f.u16: 1953/72317
+  validation: 0.55 GiB in 18.8s
+    feat_test_k6f.u16: 1953/72332
+  test: 0.55 GiB in 19.3s
+  fitted TF-IDF (smooth_idf=False) on train
+k=7 canonical=False -> 16384 features
+    feat_train_k7f.u16: 488/337512
+    feat_train_k7f.u16: 49288/337512
+    feat_train_k7f.u16: 98088/337512
+    feat_train_k7f.u16: 146888/337512
+    feat_train_k7f.u16: 195688/337512
+    feat_train_k7f.u16: 244488/337512
+    feat_train_k7f.u16: 293288/337512
+  train: 10.30 GiB in 231.0s
+    feat_validation_k7f.u16: 488/72317
+    feat_validation_k7f.u16: 49288/72317
+  validation: 2.21 GiB in 82.4s
+    feat_test_k7f.u16: 488/72332
+    feat_test_k7f.u16: 49288/72332
+  test: 2.21 GiB in 30.4s
+  fitted TF-IDF (smooth_idf=False) on train
+k=6 canonical=True -> 2080 features
+    feat_train_k6c.u16: 3846/337512
+  train: 1.31 GiB in 157.5s
+    feat_validation_k6c.u16: 3846/72317
+  validation: 0.28 GiB in 18.7s
+    feat_test_k6c.u16: 3846/72332
+  test: 0.28 GiB in 18.8s
+  fitted StandardScaler on train

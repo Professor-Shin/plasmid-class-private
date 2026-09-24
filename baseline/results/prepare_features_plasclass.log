@@ -1,0 +1,80 @@
+﻿verifying k-mer column order
+  canonical 6-mer order matches KMC reference (2080 columns)
+encoded train: 337512 fragments (7915 plasmid) in 0.7s
+encoded validation: 72317 fragments (1696 plasmid) in 0.1s
+encoded test: 72332 fragments (1696 plasmid) in 0.1s
+k=5 canonical=False -> 1024 features
+  train: 0.64 GiB (cached)
+  validation: 0.14 GiB (cached)
+  test: 0.14 GiB (cached)
+  fitted TF-IDF (smooth_idf=False) on train
+k=6 canonical=False -> 4096 features
+  train: 2.58 GiB (cached)
+  validation: 0.55 GiB (cached)
+  test: 0.55 GiB (cached)
+  fitted TF-IDF (smooth_idf=False) on train
+k=7 canonical=False -> 16384 features
+  train: 10.30 GiB (cached)
+  validation: 2.21 GiB (cached)
+  test: 2.21 GiB (cached)
+  fitted TF-IDF (smooth_idf=False) on train
+k=6 canonical=True -> 2080 features
+  train: 1.31 GiB (cached)
+  validation: 0.28 GiB (cached)
+  test: 0.28 GiB (cached)
+  fitted StandardScaler on train
+PlasClass canonical k-mer features (k=[3, 4, 5, 7] in addition to k=6)
+    feat_train_k3c.u16: 624/337512
+    feat_train_k3c.u16: 63024/337512
+    feat_train_k3c.u16: 125424/337512
+    feat_train_k3c.u16: 187824/337512
+    feat_train_k3c.u16: 250224/337512
+    feat_train_k3c.u16: 312624/337512
+  k=3 train: 32 features, 0.02 GiB (cached)
+    feat_validation_k3c.u16: 624/72317
+    feat_validation_k3c.u16: 63024/72317
+  k=3 validation: 32 features, 0.00 GiB in 11.7s
+    feat_test_k3c.u16: 624/72332
+    feat_test_k3c.u16: 63024/72332
+  k=3 test: 32 features, 0.00 GiB in 11.4s
+    feat_train_k4c.u16: 620/337512
+    feat_train_k4c.u16: 62620/337512
+    feat_train_k4c.u16: 124620/337512
+    feat_train_k4c.u16: 186620/337512
+    feat_train_k4c.u16: 248620/337512
+    feat_train_k4c.u16: 310620/337512
+  k=4 train: 136 features, 0.09 GiB in 58.5s
+    feat_validation_k4c.u16: 620/72317
+    feat_validation_k4c.u16: 62620/72317
+  k=4 validation: 136 features, 0.02 GiB in 13.9s
+    feat_test_k4c.u16: 620/72332
+    feat_test_k4c.u16: 62620/72332
+  k=4 test: 136 features, 0.02 GiB in 13.3s
+    feat_train_k5c.u16: 609/337512
+    feat_train_k5c.u16: 61509/337512
+    feat_train_k5c.u16: 122409/337512
+    feat_train_k5c.u16: 183309/337512
+    feat_train_k5c.u16: 244209/337512
+    feat_train_k5c.u16: 305109/337512
+  k=5 train: 512 features, 0.32 GiB in 68.0s
+    feat_validation_k5c.u16: 609/72317
+    feat_validation_k5c.u16: 61509/72317
+  k=5 validation: 512 features, 0.07 GiB in 14.7s
+    feat_test_k5c.u16: 609/72332
+    feat_test_k5c.u16: 61509/72332
+  k=5 test: 512 features, 0.07 GiB in 14.8s
+    feat_train_k7c.u16: 443/337512
+    feat_train_k7c.u16: 44743/337512
+    feat_train_k7c.u16: 89043/337512
+    feat_train_k7c.u16: 133343/337512
+    feat_train_k7c.u16: 177643/337512
+    feat_train_k7c.u16: 221943/337512
+    feat_train_k7c.u16: 266243/337512
+    feat_train_k7c.u16: 310543/337512
+  k=7 train: 8192 features, 5.15 GiB in 188.5s
+    feat_validation_k7c.u16: 443/72317
+    feat_validation_k7c.u16: 44743/72317
+  k=7 validation: 8192 features, 1.10 GiB in 25.8s
+    feat_test_k7c.u16: 443/72332
+    feat_test_k7c.u16: 44743/72332
+  k=7 test: 8192 features, 1.10 GiB in 25.3s

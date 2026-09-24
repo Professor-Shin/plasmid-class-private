@@ -1,0 +1,126 @@
+# ============================================================================
+# RefSeq Plasmid vs Chromosome Dataset Pipeline - configuration
+# Every parameter that can change the resulting dataset lives here.
+# Re-running the pipeline with the same config.yaml and the same
+# assembly_summary.txt must reproduce the same dataset byte-for-byte.
+# ============================================================================
+
+project_name: refseq_plasmid_vs_chromosome
+random_seed: 42
+
+source:
+  # Authoritative source of the metadata table.
+  url: "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt"
+  # Local copy actually used by the run (relative to the project root).
+  assembly_summary: "data/raw/assembly_summary.txt"
+  # Date the assembly_summary.txt snapshot was downloaded from NCBI.
+  # null => the file's own modification time is recorded in the manifest.
+  download_date: null
+  fasta_base_url: "https://ftp.ncbi.nlm.nih.gov"
+
+paths:
+  metadata_dir: "data/metadata"
+  fasta_dir: "data/fasta"
+  split_dir: "data/split"
+  dataset_dir: "data/dataset"
+  reports_dir: "reports"
+  logs_dir: "logs"
+
+# ---------------------------------------------------------------- filtering
+filter:
+  assembly_level: "Complete Genome"
+  version_status: "latest"
+  group: "bacteria"              # null disables the check
+  require_refseq_accession: true # keep GCF_* only (RefSeq, not GenBank GCA_*)
+  require_ftp_path: true
+  # Assemblies NCBI itself flagged as problematic (excluded_from_refseq != "na")
+  # are dropped; set to false to keep them.
+  drop_excluded_from_refseq: true
+  # NOTE: refseq_category is deliberately NOT filtered. Restricting to
+  # "reference genome"/"representative genome" would collapse biological
+  # diversity and bias the plasmid content of the dataset.
+
+# ---------------------------------------------------------------- sampling
+# RefSeq bacteria currently holds ~67k Complete Genome/latest assemblies
+# (~100 GB of FASTA). Sampling keeps the computational cost reasonable.
+# Set enabled: false to use every filtered assembly.
+sampling:
+  enabled: true
+  strategy: "species_balanced"   # species_balanced | random
+  max_assemblies: 500
+  max_per_species: 1             # assemblies per species_taxid (species_balanced)
+
+# ---------------------------------------------------------------- download
+download:
+  workers: 6
+  retries: 3
+  backoff_seconds: 5.0
+  timeout_seconds: 180
+  verify_md5: true               # verify against the assembly's md5checksums.txt
+  fetch_assembly_report: true    # *_assembly_report.txt = authoritative replicon types
+
+# ---------------------------------------------------------------- replicons
+replicons:
+  # Precedence for deciding chromosome / plasmid / unknown.
+  classification_sources: ["assembly_report", "defline"]
+  # Records shorter than this are kept in replicons.csv but flagged in QC.
+  short_replicon_threshold: 1000
+  # A single-record assembly whose defline says "complete genome" with no
+  # plasmid keyword is treated as the chromosome. Set false to call it unknown.
+  single_record_complete_genome_is_chromosome: true
+
+# ---------------------------------------------------------------- similarity
+# Redundancy is resolved BEFORE splitting, at the parent-replicon level.
+# MinHash/Mash-style ANI estimation - no external binaries required.
+similarity:
+  enabled: true
+  method: "minhash_mash_ani"
+  kmer_size: 21
+  sketch_size: 2000
+  # CHOSEN EXPERIMENTAL CRITERION, not a universal biological truth:
+  # two replicons join the same cluster when estimated ANI >= ani_threshold
+  # AND the shorter/longer length ratio >= min_length_ratio (a coverage proxy).
+  ani_threshold: 0.95
+  # Containment: fraction of the SHORTER replicon's k-mers found in the longer
+  # one. Catches a small plasmid that is essentially a subsequence of a larger
+  # replicon, which a Jaccard/length-ratio test alone would miss.
+  containment_threshold: 0.90
+  # Minimum number of hashes in the shared sketch range before a containment
+  # estimate is trusted. Without it, a 10-kb plasmid vs a 5-Mb chromosome can
+  # score containment 1.0 off a single shared hash.
+  min_containment_sample: 50
+  min_length_ratio: 0.90
+  linkage: "single"              # single-linkage (union-find) over the pairs
+  # Exact-duplicate sequences (identical SHA-256) are always co-clustered,
+  # regardless of the thresholds above.
+  always_cluster_exact_duplicates: true
+  # Chromosomes and plasmids are compared against each other too: shared
+  # sequence from HGT / mobile elements / phage / AMR regions is real.
+  compare_across_replicon_types: true
+
+# ---------------------------------------------------------------- split
+split:
+  unit: "cluster"                # cluster | replicon  (never "fragment")
+  train_ratio: 0.70
+  validation_ratio: 0.15
+  test_ratio: 0.15
+  # Quotas are filled per replicon class so class balance is preserved.
+  balance_by: "fragment_count"   # fragment_count | replicon_count | bases
+  # false (default, and what the specification asks for): the split unit is the
+  #   replicon cluster, so one assembly's chromosome and plasmids may land in
+  #   different splits - they are different molecules with different labels.
+  # true: merge clusters sharing an assembly, so no strain contributes
+  #   sequence to more than one split. Stricter, but harder to balance.
+  keep_assembly_together: false
+
+# ---------------------------------------------------------------- fragments
+fragments:
+  length: 5000
+  strategy: "non_overlapping"    # documented strategy; step == length
+  step: 5000
+  drop_last_partial: true        # trailing < length bp remainder is discarded
+  # Fragments with more than this fraction of non-ACGT characters are dropped
+  # and counted in the QC report.
+  max_non_acgt_fraction: 0.05
+  # Natural RefSeq class imbalance is reported, not engineered away.
+  rebalance_classes: false

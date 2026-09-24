@@ -1,0 +1,29 @@
+timestamp,step,stage,n_in,n_out,n_lost,note
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,parsed_assembly_summary,530916,530916,0,D:\senior project\dataset pipeline1\data\raw\assembly_summary.txt
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,assembly_level == 'Complete Genome',530916,66933,463983,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,version_status == 'latest',66933,66933,0,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,group == 'bacteria',66933,66933,0,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,RefSeq accession (GCF_*),66933,66933,0,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,usable ftp_path,66933,66882,51,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,excluded_from_refseq == na,66882,66230,652,
+2026-09-15T18:11:25+00:00,step01_filter_assemblies,sampling (species_balanced),66230,500,65730,
+2026-09-15T18:25:41+00:00,step02_download_fasta,selected assemblies,500,500,0,
+2026-09-15T18:25:41+00:00,step02_download_fasta,successfully obtained FASTA,500,500,0,"500 downloaded, 0 already present"
+2026-09-15T18:29:32+00:00,step03_parse_replicons,assemblies parsed,500,500,0,
+2026-09-15T18:29:32+00:00,step03_parse_replicons,FASTA records -> replicons,909,909,0,
+2026-09-15T18:29:32+00:00,step03_parse_replicons,classifiable replicons (chromosome|plasmid),909,908,1,"1 unknown kept in replicons.csv, excluded from the ML dataset"
+2026-09-15T18:29:33+00:00,step04_qc,replicons examined,909,909,0,QC discards nothing
+2026-09-15T19:08:13+00:00,step05_cluster,replicons eligible for clustering,908,869,39,length >= fragment length (5000 bp)
+2026-09-15T19:08:13+00:00,step05_cluster,replicons -> clusters (splitting units),869,844,25,single-linkage at ANI>=0.95
+2026-09-15T19:10:08+00:00,step05_cluster,replicons eligible for clustering,908,869,39,length >= fragment length (5000 bp)
+2026-09-15T19:10:08+00:00,step05_cluster,replicons -> clusters (splitting units),869,842,27,single-linkage at ANI>=0.95
+2026-09-15T19:11:32+00:00,step05_cluster,replicons eligible for clustering,908,869,39,length >= fragment length (5000 bp)
+2026-09-15T19:11:32+00:00,step05_cluster,replicons -> clusters (splitting units),869,843,26,single-linkage at ANI>=0.95
+2026-09-15T19:12:09+00:00,step05_cluster,replicons eligible for clustering,908,869,39,length >= fragment length (5000 bp)
+2026-09-15T19:12:09+00:00,step05_cluster,replicons -> clusters (splitting units),869,843,26,single-linkage at ANI>=0.95
+2026-09-15T19:12:10+00:00,step06_split,replicons available for splitting,909,869,40,unknown / sub-fragment-length replicons excluded
+2026-09-15T19:12:10+00:00,step06_split,replicons assigned to a split,869,869,0,
+2026-09-15T19:12:57+00:00,step06_split,replicons available for splitting,909,869,40,unknown / sub-fragment-length replicons excluded
+2026-09-15T19:12:57+00:00,step06_split,replicons assigned to a split,869,869,0,
+2026-09-15T19:14:49+00:00,step07_fragments,parent replicons fragmented,869,869,0,0 produced no fragment (< 5000 bp)
+2026-09-15T19:14:49+00:00,step07_fragments,candidate fragments kept,482161,482161,0,0 dropped: non-ACGT fraction > 0.05

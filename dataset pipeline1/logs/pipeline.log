@@ -1,0 +1,196 @@
+2026-09-16 01:11:14,294 | INFO    | step01.filter          | Hardlinked D:\senior project\dataset pipeline1\assembly_summary.txt -> D:\senior project\dataset pipeline1\data\raw\assembly_summary.txt
+2026-09-16 01:11:14,295 | INFO    | step01.filter          | Header row found at line 2 with 38 columns
+2026-09-16 01:11:20,549 | INFO    | step01.filter          | Parsed 530916 assembly rows
+2026-09-16 01:11:20,684 | INFO    | step01.filter          | assembly_level filter: 530916 -> 66933
+2026-09-16 01:11:20,689 | INFO    | step01.filter          | version_status filter: 66933 -> 66933
+2026-09-16 01:11:20,693 | INFO    | step01.filter          | group filter: 66933 -> 66933
+2026-09-16 01:11:20,704 | INFO    | step01.filter          | RefSeq accession filter: 66933 -> 66933
+2026-09-16 01:11:20,778 | INFO    | step01.filter          | ftp_path filter: 66933 -> 66882
+2026-09-16 01:11:20,842 | INFO    | step01.filter          | excluded_from_refseq filter: 66882 -> 66230
+2026-09-16 01:11:21,944 | INFO    | step01.filter          | Wrote D:\senior project\dataset pipeline1\data\metadata\assemblies_filtered_all.csv (66230 rows)
+2026-09-16 01:11:25,518 | INFO    | step01.filter          | Species balancing: 66230 -> 15927 assemblies (<= 1 per species_taxid, 15927 species)
+2026-09-16 01:11:25,530 | INFO    | step01.filter          | Subsampled to max_assemblies=500 (seed=42)
+2026-09-16 01:11:25,596 | INFO    | step01.filter          | Wrote D:\senior project\dataset pipeline1\data\metadata\assemblies.csv (500 selected assemblies)
+2026-09-16 01:12:09,813 | INFO    | step02.download        | Downloading FASTA for 500 assemblies (workers=6)
+2026-09-16 01:12:39,665 | INFO    | step02.download        | Progress 25/500 (ok=25, failed=0)
+2026-09-16 01:13:07,258 | INFO    | step02.download        | Progress 50/500 (ok=50, failed=0)
+2026-09-16 01:13:34,364 | INFO    | step02.download        | Progress 75/500 (ok=75, failed=0)
+2026-09-16 01:14:06,961 | INFO    | step02.download        | Progress 100/500 (ok=100, failed=0)
+2026-09-16 01:14:37,581 | INFO    | step02.download        | Progress 125/500 (ok=125, failed=0)
+2026-09-16 01:15:12,375 | INFO    | step02.download        | Progress 150/500 (ok=150, failed=0)
+2026-09-16 01:15:49,372 | INFO    | step02.download        | Progress 175/500 (ok=175, failed=0)
+2026-09-16 01:17:15,484 | INFO    | step02.download        | Progress 200/500 (ok=200, failed=0)
+2026-09-16 01:17:56,847 | INFO    | step02.download        | Progress 225/500 (ok=225, failed=0)
+2026-09-16 01:18:33,867 | INFO    | step02.download        | Progress 250/500 (ok=250, failed=0)
+2026-09-16 01:19:26,889 | INFO    | step02.download        | Progress 275/500 (ok=275, failed=0)
+2026-09-16 01:20:02,340 | INFO    | step02.download        | Progress 300/500 (ok=300, failed=0)
+2026-09-16 01:20:40,624 | INFO    | step02.download        | Progress 325/500 (ok=325, failed=0)
+2026-09-16 01:21:17,881 | INFO    | step02.download        | Progress 350/500 (ok=350, failed=0)
+2026-09-16 01:22:16,834 | INFO    | step02.download        | Progress 375/500 (ok=375, failed=0)
+2026-09-16 01:22:50,893 | INFO    | step02.download        | Progress 400/500 (ok=400, failed=0)
+2026-09-16 01:23:20,280 | INFO    | step02.download        | Progress 425/500 (ok=425, failed=0)
+2026-09-16 01:24:10,704 | INFO    | step02.download        | Progress 450/500 (ok=450, failed=0)
+2026-09-16 01:25:11,528 | INFO    | step02.download        | Progress 475/500 (ok=475, failed=0)
+2026-09-16 01:25:41,479 | INFO    | step02.download        | Progress 500/500 (ok=500, failed=0)
+2026-09-16 01:25:41,560 | INFO    | step02.download        | Downloaded=500 skipped=0 failed=0 assembly_reports=500 total=0.70 GB
+2026-09-16 01:25:52,807 | INFO    | run_pipeline           | Running steps [3, 4] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 01:25:52,807 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:25:52,807 | INFO    | run_pipeline           | STEP 3 - parse replicons
+2026-09-16 01:25:52,807 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:25:52,837 | INFO    | step03.replicons       | Parsing 500 downloaded assemblies
+2026-09-16 01:26:06,832 | INFO    | step03.replicons       | Parsed 50/500 assemblies, 83 replicons so far
+2026-09-16 01:26:25,035 | INFO    | step03.replicons       | Parsed 100/500 assemblies, 179 replicons so far
+2026-09-16 01:26:48,802 | INFO    | step03.replicons       | Parsed 150/500 assemblies, 270 replicons so far
+2026-09-16 01:27:15,465 | INFO    | step03.replicons       | Parsed 200/500 assemblies, 363 replicons so far
+2026-09-16 01:27:35,738 | INFO    | step03.replicons       | Parsed 250/500 assemblies, 469 replicons so far
+2026-09-16 01:27:57,232 | INFO    | step03.replicons       | Parsed 300/500 assemblies, 556 replicons so far
+2026-09-16 01:28:19,397 | INFO    | step03.replicons       | Parsed 350/500 assemblies, 653 replicons so far
+2026-09-16 01:28:48,620 | INFO    | step03.replicons       | Parsed 400/500 assemblies, 734 replicons so far
+2026-09-16 01:29:11,856 | INFO    | step03.replicons       | Parsed 450/500 assemblies, 832 replicons so far
+2026-09-16 01:29:32,543 | INFO    | step03.replicons       | Parsed 500/500 assemblies, 909 replicons so far
+2026-09-16 01:29:32,664 | INFO    | step03.replicons       | Wrote D:\senior project\dataset pipeline1\data\metadata\replicons.csv: 909 replicons (chromosome=527 plasmid=381 unknown=1)
+2026-09-16 01:29:32,680 | WARNING | step03.replicons       | 1 unknown replicons reported in D:\senior project\dataset pipeline1\reports\unknown_replicons.csv (excluded from the binary dataset but retained in replicons.csv)
+2026-09-16 01:29:32,758 | INFO    | run_pipeline           | STEP 3 finished in 220.0 s
+2026-09-16 01:29:32,758 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:29:32,758 | INFO    | run_pipeline           | STEP 4 - data QC
+2026-09-16 01:29:32,758 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:29:33,248 | INFO    | step04.qc              | Wrote D:\senior project\dataset pipeline1\reports\data_qc.csv and D:\senior project\dataset pipeline1\reports\data_qc.txt
+2026-09-16 01:29:33,260 | INFO    | run_pipeline           | STEP 4 finished in 0.5 s
+2026-09-16 01:29:33,260 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 01:29:52,829 | INFO    | run_pipeline           | Running steps [5] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 01:29:52,829 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:29:52,829 | INFO    | run_pipeline           | STEP 5 - deduplicate / cluster
+2026-09-16 01:29:52,830 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 01:29:52,849 | INFO    | step05.cluster         | Clustering 869 eligible replicons (of 908 chromosome/plasmid records)
+2026-09-16 01:29:52,938 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-09-16 01:29:52,938 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-09-16 01:36:50,132 | INFO    | step05.cluster         |   sketched 200/869 replicons
+2026-09-16 01:44:49,010 | INFO    | step05.cluster         |   sketched 400/869 replicons
+2026-09-16 01:54:16,743 | INFO    | step05.cluster         |   sketched 602/869 replicons
+2026-09-16 02:02:30,437 | INFO    | run_pipeline           | Running steps [5] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:02:30,438 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:02:30,438 | INFO    | run_pipeline           | STEP 5 - deduplicate / cluster
+2026-09-16 02:02:30,438 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:02:30,474 | INFO    | step05.cluster         | Clustering 869 eligible replicons (of 908 chromosome/plasmid records)
+2026-09-16 02:02:30,591 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-09-16 02:02:30,591 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-09-16 02:02:30,599 | INFO    | step05.cluster         | Sketching 869 replicons (0 served from cache)
+2026-09-16 02:03:01,836 | INFO    | step05.cluster         |   sketched 100/869 replicons
+2026-09-16 02:03:35,610 | INFO    | step05.cluster         |   sketched 200/869 replicons
+2026-09-16 02:04:08,273 | INFO    | step05.cluster         |   sketched 300/869 replicons
+2026-09-16 02:04:47,863 | INFO    | step05.cluster         |   sketched 400/869 replicons
+2026-09-16 02:05:27,647 | INFO    | step05.cluster         |   sketched 500/869 replicons
+2026-09-16 02:06:09,127 | INFO    | step05.cluster         |   sketched 600/869 replicons
+2026-09-16 02:06:54,377 | INFO    | step05.cluster         |   sketched 700/869 replicons
+2026-09-16 02:07:25,683 | INFO    | step05.cluster         |   sketched 800/869 replicons
+2026-09-16 02:07:52,367 | INFO    | step05.cluster         | Wrote sketch cache D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz (869 entries)
+2026-09-16 02:07:53,790 | INFO    | step05.cluster         | Candidate pairs sharing >=1 sketched k-mer: 31751
+2026-09-16 02:08:13,939 | INFO    | run_pipeline           | STEP 5 finished in 343.5 s
+2026-09-16 02:08:13,939 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 02:09:44,851 | INFO    | run_pipeline           | Running steps [5] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:09:44,851 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:09:44,851 | INFO    | run_pipeline           | STEP 5 - deduplicate / cluster
+2026-09-16 02:09:44,851 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:09:44,867 | INFO    | step05.cluster         | Clustering 869 eligible replicons (of 908 chromosome/plasmid records)
+2026-09-16 02:09:44,962 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-09-16 02:09:44,963 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-09-16 02:09:45,214 | INFO    | step05.cluster         | Loaded 869 cached sketches from D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz
+2026-09-16 02:09:45,219 | INFO    | step05.cluster         | Sketching 0 replicons (869 served from cache)
+2026-09-16 02:09:46,742 | INFO    | step05.cluster         | Candidate pairs sharing >=1 sketched k-mer: 31751
+2026-09-16 02:10:08,978 | INFO    | run_pipeline           | STEP 5 finished in 24.1 s
+2026-09-16 02:10:08,978 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 02:11:09,566 | INFO    | run_pipeline           | Running steps [5] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:11:09,566 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:11:09,566 | INFO    | run_pipeline           | STEP 5 - deduplicate / cluster
+2026-09-16 02:11:09,566 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:11:09,581 | INFO    | step05.cluster         | Clustering 869 eligible replicons (of 908 chromosome/plasmid records)
+2026-09-16 02:11:09,663 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-09-16 02:11:09,663 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-09-16 02:11:09,872 | INFO    | step05.cluster         | Loaded 869 cached sketches from D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz
+2026-09-16 02:11:09,881 | INFO    | step05.cluster         | Sketching 0 replicons (869 served from cache)
+2026-09-16 02:11:11,368 | INFO    | step05.cluster         | Candidate pairs sharing >=1 sketched k-mer: 31751
+2026-09-16 02:11:32,800 | INFO    | run_pipeline           | STEP 5 finished in 23.2 s
+2026-09-16 02:11:32,801 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 02:11:46,720 | INFO    | run_pipeline           | Running steps [5, 6] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:11:46,720 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:11:46,720 | INFO    | run_pipeline           | STEP 5 - deduplicate / cluster
+2026-09-16 02:11:46,720 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:11:46,734 | INFO    | step05.cluster         | Clustering 869 eligible replicons (of 908 chromosome/plasmid records)
+2026-09-16 02:11:46,813 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-09-16 02:11:46,814 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-09-16 02:11:47,011 | INFO    | step05.cluster         | Loaded 869 cached sketches from D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz
+2026-09-16 02:11:47,017 | INFO    | step05.cluster         | Sketching 0 replicons (869 served from cache)
+2026-09-16 02:11:48,607 | INFO    | step05.cluster         | Candidate pairs sharing >=1 sketched k-mer: 31751
+2026-09-16 02:12:10,023 | INFO    | run_pipeline           | STEP 5 finished in 23.3 s
+2026-09-16 02:12:10,023 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:12:10,023 | INFO    | run_pipeline           | STEP 6 - split parent replicons
+2026-09-16 02:12:10,023 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:12:10,593 | INFO    | step06.split           | Splitting 843 clusters (869 replicons) by fragment_count
+2026-09-16 02:12:10,645 | INFO    | step06.split           |   bucket chromosome  clusters= 507 weight=  470854 -> {'train': 329597, 'validation': 70621, 'test': 70636}
+2026-09-16 02:12:10,647 | INFO    | step06.split           |   bucket plasmid     clusters= 336 weight=   11307 -> {'train': 7915, 'validation': 1696, 'test': 1696}
+2026-09-16 02:12:10,656 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\train_replicons.csv (612 replicons)
+2026-09-16 02:12:10,660 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\validation_replicons.csv (131 replicons)
+2026-09-16 02:12:10,665 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\test_replicons.csv (126 replicons)
+2026-09-16 02:12:10,703 | INFO    | step06.split           | 
+     split  target_ratio  clusters  assemblies  replicons  chromosomes  plasmids   total_bp  expected_fragments  expected_fragments_chromosome  expected_fragments_plasmid  actual_fragment_ratio
+     train          0.70       594         394        612          372       240 1689082120              337512                         329785                        8030                   0.70
+validation          0.15       124         105        131           78        53  361891360               72317                          70655                        1722                   0.15
+      test          0.15       125         112        126           77        49  361984395               72332                          70673                        1723                   0.15
+2026-09-16 02:12:10,704 | INFO    | step06.split           | Assemblies whose replicons span >1 split: 98 (expected: chromosome and plasmid of one assembly may cluster apart)
+2026-09-16 02:12:10,719 | INFO    | run_pipeline           | STEP 6 finished in 0.7 s
+2026-09-16 02:12:10,719 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 02:12:56,591 | INFO    | run_pipeline           | Running steps [6] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:12:56,591 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:12:56,591 | INFO    | run_pipeline           | STEP 6 - split parent replicons
+2026-09-16 02:12:56,591 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:12:57,150 | INFO    | step06.split           | Splitting 843 clusters (869 replicons) by fragment_count
+2026-09-16 02:12:57,154 | INFO    | step06.split           |   bucket chromosome  clusters= 507 weight=  470854 -> {'train': 329597, 'validation': 70621, 'test': 70636}
+2026-09-16 02:12:57,157 | INFO    | step06.split           |   bucket plasmid     clusters= 336 weight=   11307 -> {'train': 7915, 'validation': 1696, 'test': 1696}
+2026-09-16 02:12:57,167 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\train_replicons.csv (612 replicons)
+2026-09-16 02:12:57,171 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\validation_replicons.csv (131 replicons)
+2026-09-16 02:12:57,175 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\test_replicons.csv (126 replicons)
+2026-09-16 02:12:57,203 | INFO    | step06.split           | 
+     split  target_ratio  clusters  split_groups  assemblies  replicons  chromosomes  plasmids   total_bp  expected_fragments  expected_fragments_chromosome  expected_fragments_plasmid  actual_fragment_ratio
+     train          0.70       594           594         394        612          372       240 1689082120              337512                         329785                        8030                   0.70
+validation          0.15       124           124         105        131           78        53  361891360               72317                          70655                        1722                   0.15
+      test          0.15       125           125         112        126           77        49  361984395               72332                          70673                        1723                   0.15
+2026-09-16 02:12:57,204 | INFO    | step06.split           | Assemblies whose replicons span >1 split: 98 (expected: chromosome and plasmid of one assembly may cluster apart)
+2026-09-16 02:12:57,273 | INFO    | run_pipeline           | STEP 6 finished in 0.7 s
+2026-09-16 02:12:57,273 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 02:13:02,935 | INFO    | run_pipeline           | Running steps [7] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:13:02,935 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:13:02,936 | INFO    | run_pipeline           | STEP 7 - generate 5-kb fragments
+2026-09-16 02:13:02,936 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:13:02,956 | INFO    | step07.fragments       | Fragmenting 869 parent replicons (strategy=non_overlapping, length=5000, step=5000)
+2026-09-16 02:13:20,060 | INFO    | step07.fragments       |   200 replicons -> 97642 fragments
+2026-09-16 02:13:40,935 | INFO    | step07.fragments       |   400 replicons -> 204860 fragments
+2026-09-16 02:14:04,720 | INFO    | step07.fragments       |   600 replicons -> 326477 fragments
+2026-09-16 02:14:26,462 | INFO    | step07.fragments       |   800 replicons -> 442649 fragments
+2026-09-16 02:14:38,294 | INFO    | step07.fragments       | Wrote D:\senior project\dataset pipeline1\data\metadata\fragments.csv (482161 fragments)
+2026-09-16 02:14:40,637 | INFO    | step07.fragments       | train         337512 fragments (chromosome=329597 plasmid=7915)
+2026-09-16 02:14:41,174 | INFO    | step07.fragments       | validation     72317 fragments (chromosome=70621 plasmid=1696)
+2026-09-16 02:14:41,668 | INFO    | step07.fragments       | test           72332 fragments (chromosome=70636 plasmid=1696)
+2026-09-16 02:14:49,247 | INFO    | step07.fragments       | Integrity checks passed: fragment_id sets match between FASTA and CSV, no replicon spans multiple splits, no duplicate ids
+2026-09-16 02:14:49,968 | INFO    | run_pipeline           | STEP 7 finished in 107.0 s
+2026-09-16 02:14:49,968 | INFO    | run_pipeline           | Pipeline complete.
+2026-09-16 04:43:42,650 | INFO    | analyze_population     | Header row found at line 2 with 38 columns
+2026-09-16 04:43:51,862 | INFO    | analyze_population     | Parsed 530916 assembly rows
+2026-09-16 04:43:52,208 | INFO    | analyze_population     | Filtered population: 66230 assemblies
+2026-09-16 04:43:52,270 | INFO    | analyze_population     | Resolving 15927 distinct species_taxid via NCBI Taxonomy
+2026-09-16 04:43:58,700 | INFO    | analyze_population     |   taxonomy 200/15927
+2026-09-16 04:44:48,789 | INFO    | analyze_population     |   taxonomy 2200/15927
+2026-09-16 04:45:28,381 | INFO    | analyze_population     |   taxonomy 4200/15927
+2026-09-16 04:46:02,326 | INFO    | analyze_population     |   taxonomy 6200/15927
+2026-09-16 04:46:42,844 | INFO    | analyze_population     |   taxonomy 8200/15927
+2026-09-16 04:47:14,585 | INFO    | analyze_population     |   taxonomy 10200/15927
+2026-09-16 04:47:42,009 | INFO    | analyze_population     |   taxonomy 12200/15927
+2026-09-16 04:48:23,499 | INFO    | analyze_population     |   taxonomy 14200/15927
+2026-09-16 04:48:52,045 | INFO    | analyze_population     | Taxonomy cache: D:\senior project\dataset pipeline1\data\metadata\taxonomy_species.csv (15927 taxids)
+2026-09-16 04:48:54,206 | INFO    | analyze_population     | prokaryotes.txt rows usable: 729437
+2026-09-16 04:48:56,195 | INFO    | analyze_population     | Wrote reports/population_characterisation.txt and population_replicons.csv
+2026-09-16 04:50:40,852 | INFO    | analyze_population     | Header row found at line 2 with 38 columns
+2026-09-16 04:50:45,571 | INFO    | analyze_population     | Parsed 530916 assembly rows
+2026-09-16 04:50:45,824 | INFO    | analyze_population     | Filtered population: 66230 assemblies
+2026-09-16 04:50:45,942 | INFO    | analyze_population     | Taxonomy cache: D:\senior project\dataset pipeline1\data\metadata\taxonomy_species.csv (15927 taxids)
+2026-09-16 04:50:48,155 | INFO    | analyze_population     | prokaryotes.txt rows usable: 729437
+2026-09-16 04:50:50,134 | INFO    | analyze_population     | Wrote reports/population_characterisation.txt and population_replicons.csv

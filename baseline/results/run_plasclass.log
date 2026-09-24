@@ -1,0 +1,8 @@
+﻿PlasClass features: k=[3, 4, 5, 6, 7] -> 10952 columns (length bin 1000 bp)
+=== PlasClass | regime=balanced | train fragments=15830 (7915 plasmid) ===
+  assembled train matrix (15830, 10952) (0.65 GiB) in 9.2s
+  solver check on 3000 rows: max|dp|=0.0111 mean|dp|=0.00059 coef r=0.96619 label agreement=1.0000
+  fitted lbfgs in 57.9s, n_iter=290
+  predicted validation (72317 fragments) in 23.3s
+  predicted test (72332 fragments) in 11.9s
+  TEST: acc=0.7075 f1=0.0997 recall=0.6910 precision=0.0537 auprc=0.0672 mcc=0.1315

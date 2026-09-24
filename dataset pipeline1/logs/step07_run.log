@@ -1,0 +1,20 @@
+2026-09-16 02:13:02,935 | INFO    | run_pipeline           | Running steps [7] with config D:\senior project\dataset pipeline1\config.yaml
+2026-09-16 02:13:02,935 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:13:02,936 | INFO    | run_pipeline           | STEP 7 - generate 5-kb fragments
+2026-09-16 02:13:02,936 | INFO    | run_pipeline           | ======================================================================
+2026-09-16 02:13:02,956 | INFO    | step07.fragments       | Fragmenting 869 parent replicons (strategy=non_overlapping, length=5000, step=5000)
+2026-09-16 02:13:20,060 | INFO    | step07.fragments       |   200 replicons -> 97642 fragments
+2026-09-16 02:13:40,935 | INFO    | step07.fragments       |   400 replicons -> 204860 fragments
+2026-09-16 02:14:04,720 | INFO    | step07.fragments       |   600 replicons -> 326477 fragments
+2026-09-16 02:14:26,462 | INFO    | step07.fragments       |   800 replicons -> 442649 fragments
+2026-09-16 02:14:38,294 | INFO    | step07.fragments       | Wrote D:\senior project\dataset pipeline1\data\metadata\fragments.csv (482161 fragments)
+2026-09-16 02:14:40,637 | INFO    | step07.fragments       | train         337512 fragments (chromosome=329597 plasmid=7915)
+2026-09-16 02:14:41,174 | INFO    | step07.fragments       | validation     72317 fragments (chromosome=70621 plasmid=1696)
+2026-09-16 02:14:41,668 | INFO    | step07.fragments       | test           72332 fragments (chromosome=70636 plasmid=1696)
+2026-09-16 02:14:49,247 | INFO    | step07.fragments       | Integrity checks passed: fragment_id sets match between FASTA and CSV, no replicon spans multiple splits, no duplicate ids
+     split  fragments  fragments_chromosome  fragments_plasmid  plasmid_fraction  replicons  chromosomes  plasmids  assemblies  clusters  species   total_bp  fragment_ratio
+     train     337512                329597               7915          0.023451        612          372       240         394       594      394 1687560000            0.70
+validation      72317                 70621               1696          0.023452        131           78        53         105       124      105  361585000            0.15
+      test      72332                 70636               1696          0.023447        126           77        49         112       125      112  361660000            0.15
+2026-09-16 02:14:49,968 | INFO    | run_pipeline           | STEP 7 finished in 107.0 s
+2026-09-16 02:14:49,968 | INFO    | run_pipeline           | Pipeline complete.

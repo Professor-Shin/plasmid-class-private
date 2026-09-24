@@ -1,0 +1,49 @@
+# Proposed model: ESM-2 protein embeddings + trainable attention pooling over ORFs,
+# re-implemented from `old resource/09_train_esm2.py` and `10_esm_attention.py`
+# and trained on the RefSeq 5-kb fragment dataset.
+
+# The prototype this is transcribed from; checksummed into results/environment.json.
+upstream:
+  directory: "../old resource"
+  files: ["09_train_esm2.py", "10_esm_attention.py"]
+  previous_result: "esm_attn_res.txt"
+
+dataset_dir: "../dataset pipeline1/data/dataset"
+baseline_dir: "../baseline/results"
+cache_dir: "cache"
+results_dir: "results"
+
+fragment_length: 5000
+random_seed: 42
+
+esm:
+  model_name: "facebook/esm2_t6_8M_UR50D"
+  hidden_size: 320
+  max_length: 1024          # tokenizer truncation, as in the prototype
+  torch_threads: 4
+  # ORFs are embedded in length-sorted batches capped by total tokens instead of a
+  # fixed count of 8; the mean-pooled embeddings are numerically identical and it is
+  # 2.4x faster because almost no padding is computed.
+  batch_tokens: 8192
+
+orf:
+  min_length: 100           # minimum peptide length in amino acids
+  max_orfs: 10              # keep the longest N ORFs per fragment
+
+# ESM-2 costs ~0.44 s per fragment on this CPU, so the 482,161-fragment dataset
+# cannot be embedded in full. Each split is sampled per class and every metric is
+# re-weighted to the split's true composition (see REPORT.md section 3.3).
+subsample:
+  train: {plasmid: 4000, chromosome: 4000}
+  validation: {plasmid: 1000, chromosome: 4000}
+  test: {plasmid: 999999, chromosome: 8000}
+
+train:
+  epochs: 15
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  dropout: 0.3
+  classifier_hidden: 64
+  batch_size: 1             # the prototype takes one fragment per optimisation step
+  n_seeds: 3
+  torch_threads: 2

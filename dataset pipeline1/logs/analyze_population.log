@@ -1,0 +1,69 @@
+2026-09-16 04:43:42,650 | INFO    | analyze_population     | Header row found at line 2 with 38 columns
+2026-09-16 04:43:51,862 | INFO    | analyze_population     | Parsed 530916 assembly rows
+2026-09-16 04:43:52,208 | INFO    | analyze_population     | Filtered population: 66230 assemblies
+2026-09-16 04:43:52,270 | INFO    | analyze_population     | Resolving 15927 distinct species_taxid via NCBI Taxonomy
+2026-09-16 04:43:58,700 | INFO    | analyze_population     |   taxonomy 200/15927
+2026-09-16 04:44:48,789 | INFO    | analyze_population     |   taxonomy 2200/15927
+2026-09-16 04:45:28,381 | INFO    | analyze_population     |   taxonomy 4200/15927
+2026-09-16 04:46:02,326 | INFO    | analyze_population     |   taxonomy 6200/15927
+2026-09-16 04:46:42,844 | INFO    | analyze_population     |   taxonomy 8200/15927
+2026-09-16 04:47:14,585 | INFO    | analyze_population     |   taxonomy 10200/15927
+2026-09-16 04:47:42,009 | INFO    | analyze_population     |   taxonomy 12200/15927
+2026-09-16 04:48:23,499 | INFO    | analyze_population     |   taxonomy 14200/15927
+2026-09-16 04:48:52,045 | INFO    | analyze_population     | Taxonomy cache: D:\senior project\dataset pipeline1\data\metadata\taxonomy_species.csv (15927 taxids)
+2026-09-16 04:48:54,206 | INFO    | analyze_population     | prokaryotes.txt rows usable: 729437
+==============================================================================
+FILTERED POPULATION CHARACTERISATION
+(all assemblies passing the step-1 filter, not just the sampled subset)
+==============================================================================
+
+Assemblies passing the filter ....... 66,230
+Distinct species_taxid .............. 15,927
+
+-- 1. DOMAIN (resolved from NCBI Taxonomy, not the 'group' column) --------
+
+   NOTE: the assembly_summary 'group' column reads 'bacteria' for every
+   row, but it reflects the FTP directory. NCBI's refseq/bacteria
+   division also distributes Archaea, so 'group' cannot establish the
+   domain on its own.
+
+   Bacteria                   66,230 assemblies  (100.00%)   15,927 species
+
+-- 2. REPLICON CONTENT (from GENOME_REPORTS/prokaryotes.txt) -------------
+
+   Assemblies matched to the bulk report  39,569 (59.74%)
+   Unmatched (no replicon breakdown) ..... 26,661
+
+   Total chromosomes ..................... 40,903
+   Total plasmids ........................ 47,227
+   Total other/unnamed replicons ......... 905
+   Total replicons ....................... 89,035
+   Plasmid share of replicons ............ 53.04%
+
+   Assemblies with >=1 plasmid ........... 17,676  (44.67%)
+   Assemblies with no plasmid ............ 21,893
+   Assemblies with >1 plasmid ............ 10,975
+   Assemblies with >1 chromosome ......... 1,851
+   Max plasmids in one assembly .......... 28
+
+   Plasmids per assembly:
+       0 plasmid(s)    21,893 assemblies
+       1 plasmid(s)     6,701 assemblies
+       2 plasmid(s)     4,020 assemblies
+       3 plasmid(s)     2,540 assemblies
+       4 plasmid(s)     1,749 assemblies
+       5 plasmid(s)     1,049 assemblies
+       6 plasmid(s)       648 assemblies
+       7 plasmid(s)       362 assemblies
+       8 plasmid(s)       225 assemblies
+       9 plasmid(s)       112 assemblies
+      10 plasmid(s)        93 assemblies
+      11 plasmid(s)        53 assemblies
+
+-- 3. BY DOMAIN ----------------------------------------------------------
+
+   domain                  assemblies  chromosomes   plasmids  % w/ plasmid
+   Bacteria                    39,569       40,903     47,227        44.67%
+
+==============================================================================
+2026-09-16 04:48:56,195 | INFO    | analyze_population     | Wrote reports/population_characterisation.txt and population_replicons.csv

@@ -1,0 +1,234 @@
+{
+  "project_name": "refseq_plasmid_vs_chromosome",
+  "random_seed": 42,
+  "source": {
+    "url": "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt",
+    "assembly_summary": "data/raw/assembly_summary.txt",
+    "download_date": null,
+    "fasta_base_url": "https://ftp.ncbi.nlm.nih.gov"
+  },
+  "software": {
+    "python": "3.13.5",
+    "platform": "Windows-11-10.0.22631-SP0",
+    "pipeline": "1.0.0",
+    "pandas": "3.0.2",
+    "numpy": "2.4.4",
+    "Bio": "1.87",
+    "yaml": "6.0.3"
+  },
+  "steps": {
+    "step01_filter_assemblies": {
+      "finished_utc": "2026-09-15T18:11:25+00:00",
+      "assembly_summary_path": "D:\\senior project\\dataset pipeline1\\data\\raw\\assembly_summary.txt",
+      "assembly_summary_download_date": "2026-09-15T17:13:54+00:00",
+      "assembly_summary_bytes": 235717306,
+      "rows_in_summary": 530916,
+      "filter_criteria": {
+        "assembly_level": "Complete Genome",
+        "version_status": "latest",
+        "group": "bacteria",
+        "require_refseq_accession": true,
+        "require_ftp_path": true,
+        "drop_excluded_from_refseq": true
+      },
+      "assemblies_after_filtering": 66230,
+      "sampling": {
+        "enabled": true,
+        "strategy": "species_balanced",
+        "max_assemblies": 500,
+        "max_per_species": 1
+      },
+      "assemblies_selected": 500,
+      "distinct_species_taxid_selected": 500
+    },
+    "step02_download_fasta": {
+      "finished_utc": "2026-09-15T18:25:41+00:00",
+      "assemblies_requested": 500,
+      "downloaded_this_run": 500,
+      "already_present": 0,
+      "failed": 0,
+      "assembly_reports_available": 500,
+      "total_fasta_bytes": 698055839,
+      "md5_verified": 500,
+      "download_status_csv": "D:\\senior project\\dataset pipeline1\\data\\metadata\\download_status.csv",
+      "failures_csv": "D:\\senior project\\dataset pipeline1\\reports\\download_failures.csv"
+    },
+    "step03_parse_replicons": {
+      "finished_utc": "2026-09-15T18:29:32+00:00",
+      "assemblies_parsed": 500,
+      "replicons_total": 909,
+      "chromosomes": 527,
+      "plasmids": 381,
+      "unknown": 1,
+      "classification_sources": [
+        "assembly_report",
+        "defline"
+      ],
+      "classification_source_counts": {
+        "assembly_report": 904,
+        "defline": 5
+      },
+      "replicons_csv": "D:\\senior project\\dataset pipeline1\\data\\metadata\\replicons.csv"
+    },
+    "step04_qc": {
+      "finished_utc": "2026-09-15T18:29:33+00:00",
+      "qc_csv": "D:\\senior project\\dataset pipeline1\\reports\\data_qc.csv",
+      "qc_txt": "D:\\senior project\\dataset pipeline1\\reports\\data_qc.txt",
+      "chromosomes": 527,
+      "plasmids": 381,
+      "unknown": 1,
+      "duplicate_sequence_groups": 0,
+      "replicons_with_non_acgt": 5
+    },
+    "step05_cluster": {
+      "finished_utc": "2026-09-15T19:12:09+00:00",
+      "method": "minhash_mash_ani",
+      "parameters": {
+        "enabled": true,
+        "method": "minhash_mash_ani",
+        "kmer_size": 21,
+        "sketch_size": 2000,
+        "ani_threshold": 0.95,
+        "containment_threshold": 0.9,
+        "min_containment_sample": 50,
+        "min_length_ratio": 0.9,
+        "linkage": "single",
+        "always_cluster_exact_duplicates": true,
+        "compare_across_replicon_types": true
+      },
+      "replicons_clustered": 869,
+      "clusters": 843,
+      "multi_member_clusters": 14,
+      "exact_duplicate_links": 0,
+      "similarity_linked_pairs": 40,
+      "cross_type_linked_pairs": 0,
+      "clusters_csv": "D:\\senior project\\dataset pipeline1\\data\\metadata\\clusters.csv",
+      "pairs_csv": "D:\\senior project\\dataset pipeline1\\reports\\similarity_pairs.csv"
+    },
+    "step06_split": {
+      "finished_utc": "2026-09-15T19:12:57+00:00",
+      "unit": "cluster",
+      "ratios": {
+        "train": 0.7,
+        "validation": 0.15,
+        "test": 0.15
+      },
+      "balance_by": "fragment_count",
+      "random_seed": 42,
+      "keep_assembly_together": false,
+      "split_groups": 843,
+      "clusters_assigned": 843,
+      "replicons_assigned": 869,
+      "clusters_spanning_multiple_splits": 0,
+      "assemblies_spanning_multiple_splits": 98,
+      "per_split": [
+        {
+          "split": "train",
+          "target_ratio": 0.7,
+          "clusters": 594,
+          "split_groups": 594,
+          "assemblies": 394,
+          "replicons": 612,
+          "chromosomes": 372,
+          "plasmids": 240,
+          "total_bp": 1689082120,
+          "expected_fragments": 337512,
+          "expected_fragments_chromosome": 329785,
+          "expected_fragments_plasmid": 8030,
+          "actual_fragment_ratio": 0.7
+        },
+        {
+          "split": "validation",
+          "target_ratio": 0.15,
+          "clusters": 124,
+          "split_groups": 124,
+          "assemblies": 105,
+          "replicons": 131,
+          "chromosomes": 78,
+          "plasmids": 53,
+          "total_bp": 361891360,
+          "expected_fragments": 72317,
+          "expected_fragments_chromosome": 70655,
+          "expected_fragments_plasmid": 1722,
+          "actual_fragment_ratio": 0.15
+        },
+        {
+          "split": "test",
+          "target_ratio": 0.15,
+          "clusters": 125,
+          "split_groups": 125,
+          "assemblies": 112,
+          "replicons": 126,
+          "chromosomes": 77,
+          "plasmids": 49,
+          "total_bp": 361984395,
+          "expected_fragments": 72332,
+          "expected_fragments_chromosome": 70673,
+          "expected_fragments_plasmid": 1723,
+          "actual_fragment_ratio": 0.15
+        }
+      ]
+    },
+    "step07_fragments": {
+      "finished_utc": "2026-09-15T19:14:49+00:00",
+      "fragment_length": 5000,
+      "strategy": "non_overlapping",
+      "step": 5000,
+      "drop_last_partial": true,
+      "max_non_acgt_fraction": 0.05,
+      "fragments_total": 482161,
+      "fragments_dropped_non_acgt": 0,
+      "replicons_fragmented": 869,
+      "replicons_without_fragments": 0,
+      "per_split": [
+        {
+          "split": "train",
+          "fragments": 337512,
+          "fragments_chromosome": 329597,
+          "fragments_plasmid": 7915,
+          "plasmid_fraction": 0.023451,
+          "replicons": 612,
+          "chromosomes": 372,
+          "plasmids": 240,
+          "assemblies": 394,
+          "clusters": 594,
+          "species": 394,
+          "total_bp": 1687560000,
+          "fragment_ratio": 0.7
+        },
+        {
+          "split": "validation",
+          "fragments": 72317,
+          "fragments_chromosome": 70621,
+          "fragments_plasmid": 1696,
+          "plasmid_fraction": 0.023452,
+          "replicons": 131,
+          "chromosomes": 78,
+          "plasmids": 53,
+          "assemblies": 105,
+          "clusters": 124,
+          "species": 105,
+          "total_bp": 361585000,
+          "fragment_ratio": 0.15
+        },
+        {
+          "split": "test",
+          "fragments": 72332,
+          "fragments_chromosome": 70636,
+          "fragments_plasmid": 1696,
+          "plasmid_fraction": 0.023447,
+          "replicons": 126,
+          "chromosomes": 77,
+          "plasmids": 49,
+          "assemblies": 112,
+          "clusters": 125,
+          "species": 112,
+          "total_bp": 361660000,
+          "fragment_ratio": 0.15
+        }
+      ],
+      "fragments_csv": "D:\\senior project\\dataset pipeline1\\data\\metadata\\fragments.csv",
+      "dataset_dir": "D:\\senior project\\dataset pipeline1\\data\\dataset"
+    }
+  }
+}

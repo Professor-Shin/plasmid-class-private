@@ -1,0 +1,50 @@
+==============================================================================
+DATA QUALITY REPORT - RefSeq plasmid vs chromosome dataset
+==============================================================================
+
+1.  Assemblies selected .................. 500
+2.  Assemblies downloaded ................ 500
+3.  Failed downloads ..................... 0
+4.  FASTA records (replicons) ............ 909
+5.  Chromosomes .......................... 527
+6.  Plasmids ............................. 381
+7.  Unknown replicons .................... 1
+
+8.  Chromosome length distribution (bp)
+        n          527
+        min        105,350
+        p25        2,800,503
+        median     4,005,916
+        mean       4,469,783
+        p75        5,681,970
+        p95        9,288,438
+        max        13,696,185
+        total_bp   2,355,575,937
+
+9.  Plasmid length distribution (bp)
+        n          381
+        min        1,119
+        p25        18,216
+        median     63,562
+        mean       150,908
+        p75        174,268
+        p95        633,497
+        max        1,900,099
+        total_bp   57,496,151
+
+10. Assemblies with both chromosome and plasmid ... 166 / 500 (33.2%)
+11. Assemblies with multiple plasmids ............. 92 (max 16 in one assembly)
+12. Duplicate sequences ........................... 0 groups, 0 redundant records
+13. Invalid / non-ACGT characters ................. 5 replicons, 13 bases (max fraction 0.000001)
+14. Extremely short replicons ..................... 0 < 1000 bp; 39 < 5000 bp (unusable for fragments)
+
+Replicon type evidence
+        assembly_report      904
+        defline              5
+
+Nothing was discarded by this step. 'unknown' replicons stay in
+metadata/replicons.csv and reports/unknown_replicons.csv; they are
+excluded only from the binary train/val/test dataset.
+
+Expected non-overlapping 5000 bp fragments: chromosome=470,854 plasmid=11,307
+==============================================================================

@@ -1,0 +1,54 @@
+metric,group,value,note
+assemblies_selected,assemblies,500.0,
+assemblies_downloaded,assemblies,500.0,
+assemblies_failed_download,assemblies,0.0,
+assemblies_parsed,assemblies,500.0,
+distinct_species_taxid,assemblies,500.0,
+fasta_records_total,replicons,909.0,one FASTA record = one replicon
+chromosomes,replicons,527.0,
+plasmids,replicons,381.0,
+unknown_replicons,replicons,1.0,excluded from the binary ML dataset
+assemblies_with_chromosome_and_plasmid,assemblies,166.0,
+assemblies_with_multiple_plasmids,assemblies,92.0,
+assemblies_with_no_plasmid,assemblies,334.0,
+assemblies_with_multiple_chromosomes,assemblies,22.0,
+max_plasmids_in_one_assembly,assemblies,16.0,
+duplicate_sequence_groups,sequences,0.0,identical SHA-256 sequences shared by >1 replicon
+duplicate_replicon_records,sequences,0.0,records beyond the first in each duplicate group
+replicons_with_non_acgt,sequences,5.0,
+non_acgt_bases_total,sequences,13.0,
+max_non_acgt_fraction_in_a_replicon,sequences,6.5e-07,
+replicons_shorter_than_threshold,sequences,0.0,length < 1000 bp
+replicons_shorter_than_fragment_length,sequences,39.0,length < 5000 bp - cannot yield a fragment
+classification_by_assembly_report,classification,904.0,
+classification_by_defline,classification,5.0,
+length_n,chromosome_length_distribution,527.0,
+length_min,chromosome_length_distribution,105350.0,
+length_p25,chromosome_length_distribution,2800503.0,
+length_median,chromosome_length_distribution,4005916.0,
+length_mean,chromosome_length_distribution,4469783.0,
+length_p75,chromosome_length_distribution,5681970.0,
+length_p95,chromosome_length_distribution,9288438.0,
+length_max,chromosome_length_distribution,13696185.0,
+length_total_bp,chromosome_length_distribution,2355575937.0,
+expected_fragments,chromosome_length_distribution,470854.0,non-overlapping 5000 bp fragments
+length_n,plasmid_length_distribution,381.0,
+length_min,plasmid_length_distribution,1119.0,
+length_p25,plasmid_length_distribution,18216.0,
+length_median,plasmid_length_distribution,63562.0,
+length_mean,plasmid_length_distribution,150908.0,
+length_p75,plasmid_length_distribution,174268.0,
+length_p95,plasmid_length_distribution,633497.0,
+length_max,plasmid_length_distribution,1900099.0,
+length_total_bp,plasmid_length_distribution,57496151.0,
+expected_fragments,plasmid_length_distribution,11307.0,non-overlapping 5000 bp fragments
+length_n,unknown_length_distribution,1.0,
+length_min,unknown_length_distribution,9260.0,
+length_p25,unknown_length_distribution,9260.0,
+length_median,unknown_length_distribution,9260.0,
+length_mean,unknown_length_distribution,9260.0,
+length_p75,unknown_length_distribution,9260.0,
+length_p95,unknown_length_distribution,9260.0,
+length_max,unknown_length_distribution,9260.0,
+length_total_bp,unknown_length_distribution,9260.0,
+expected_fragments,unknown_length_distribution,1.0,non-overlapping 5000 bp fragments

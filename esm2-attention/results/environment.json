@@ -1,0 +1,250 @@
+{
+  "captured_at": "2026-09-24T03:51:35.825796+00:00",
+  "hardware": {
+    "logical_cpus": 8,
+    "machine": "AMD64",
+    "cpu_model": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+    "physical_cores": 4,
+    "logical_cores": 8,
+    "ram_bytes": 8458129408
+  },
+  "os": {
+    "system": "Windows",
+    "version": "10.0.22631",
+    "edition": "Microsoft Windows 11 Pro"
+  },
+  "python": {
+    "version": "3.13.5",
+    "executable": "C:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
+  },
+  "packages": {
+    "torch": "2.11.0",
+    "transformers": "5.7.0",
+    "tokenizers": "0.22.2",
+    "safetensors": "0.7.0",
+    "biopython": "1.87",
+    "numpy": "2.4.4",
+    "pandas": "3.0.2",
+    "scikit-learn": "1.8.0",
+    "scipy": "1.17.1",
+    "PyYAML": "6.0.3"
+  },
+  "torch": {
+    "version": "2.11.0+cpu",
+    "cuda_available": false,
+    "default_num_threads": 4,
+    "parallel_info": [
+      "ATen/Parallel:",
+      "\tat::get_num_threads() : 4",
+      "\tat::get_num_interop_threads() : 4",
+      "OpenMP 2019",
+      "\tomp_get_max_threads() : 4",
+      "Intel(R) oneAPI Math Kernel Library Version 2025.3-Product Build 20251007 for Intel(R) 64 architecture applications",
+      "\tmkl_get_max_threads() : 4",
+      "Intel(R) MKL-DNN v3.10.2 (Git Hash f1d471933dc852f956fd05389f9313c7148783d5)",
+      "std::thread::hardware_concurrency() : 8",
+      "Environment variables:",
+      "\tOMP_NUM_THREADS : [not set]",
+      "\tMKL_NUM_THREADS : [not set]",
+      "ATen parallel backend: OpenMP"
+    ]
+  },
+  "thread_settings": {
+    "esm_extraction": 4,
+    "training": 2
+  },
+  "esm_checkpoint": {
+    "model_name": "facebook/esm2_t6_8M_UR50D",
+    "cache": "C:\\Users\\USER\\.cache\\huggingface\\hub\\models--facebook--esm2_t6_8M_UR50D",
+    "found": true,
+    "revision": [
+      "c731040fcd8d73dceaa04b0a8e6329b345b0f5df"
+    ],
+    "files": {
+      "config.json": 775,
+      "model.safetensors": 31384292,
+      "special_tokens_map.json": 125,
+      "tokenizer_config.json": 95,
+      "vocab.txt": 93
+    },
+    "n_parameters": 7409081,
+    "hidden_size": 320,
+    "n_layers": 6,
+    "weight_sha256": "6e9c93b2690494db62da7e0b5783057001a55441fb35ec4ce9c21ec98e989bb1"
+  },
+  "prototype": {
+    "09_train_esm2.py": {
+      "bytes": 9009,
+      "sha256": "a4048a504f733001e9403563448e7c78d799897506765d944cb0a1855e8a1cd3",
+      "modified": "2026-05-13T05:56:28.573685+00:00"
+    },
+    "10_esm_attention.py": {
+      "bytes": 8488,
+      "sha256": "1b9727d67c3041a5fc44d6a231a916f4fb721e564f37b0c9ef4f25651f16ac11",
+      "modified": "2026-05-08T17:54:07.433011+00:00"
+    },
+    "esm_attn_res.txt": {
+      "bytes": 1344,
+      "sha256": "81829f207c09ef72797d00ef3ecb25c8be2824dfa1dfde2d3a43133c3c2a1586",
+      "modified": "2026-05-08T17:54:36.965937+00:00"
+    }
+  },
+  "config": {
+    "path": "config.yaml",
+    "sha256": "c069fa3ae8607786e8e1d0f12ec6406e08b477c263ef9e7e1aaa6015a995c87f",
+    "values": {
+      "upstream": {
+        "directory": "../old resource",
+        "files": [
+          "09_train_esm2.py",
+          "10_esm_attention.py"
+        ],
+        "previous_result": "esm_attn_res.txt"
+      },
+      "dataset_dir": "../dataset pipeline1/data/dataset",
+      "baseline_dir": "../baseline/results",
+      "cache_dir": "cache",
+      "results_dir": "results",
+      "fragment_length": 5000,
+      "random_seed": 42,
+      "esm": {
+        "model_name": "facebook/esm2_t6_8M_UR50D",
+        "hidden_size": 320,
+        "max_length": 1024,
+        "torch_threads": 4,
+        "batch_tokens": 8192
+      },
+      "orf": {
+        "min_length": 100,
+        "max_orfs": 10
+      },
+      "subsample": {
+        "train": {
+          "plasmid": 4000,
+          "chromosome": 4000
+        },
+        "validation": {
+          "plasmid": 1000,
+          "chromosome": 4000
+        },
+        "test": {
+          "plasmid": 999999,
+          "chromosome": 8000
+        }
+      },
+      "train": {
+        "epochs": 15,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "dropout": 0.3,
+        "classifier_hidden": 64,
+        "batch_size": 1,
+        "n_seeds": 3,
+        "torch_threads": 2
+      }
+    }
+  },
+  "dataset": {
+    "directory": "D:\\senior project\\dataset pipeline1\\data\\dataset",
+    "files": {
+      "test.csv": {
+        "bytes": 12630995,
+        "sha256": "960e57b6b2596ddbfb2bf3c690915abb19fe731c7fb7fb7e5c730f2b4b2166e5",
+        "modified": "2026-09-15T19:14:41.667121+00:00"
+      },
+      "test.fasta": {
+        "bytes": 368242212,
+        "sha256": "b08c1a24028591ca4ec76005c2caaaa006fca2559e26512a87f579c981f4d501",
+        "modified": "2026-09-15T19:14:34.151000+00:00"
+      },
+      "train.csv": {
+        "bytes": 59128170,
+        "sha256": "4537babcbf959badb775abce1e8960e6b0da7bb970ac7bf338184b80b5fe9c77",
+        "modified": "2026-09-15T19:14:40.634972+00:00"
+      },
+      "train.fasta": {
+        "bytes": 1718273592,
+        "sha256": "dc501eb6880875244a07c358784da39be61f16c47a3872a3f40256cb2635e20f",
+        "modified": "2026-09-15T19:14:34.151000+00:00"
+      },
+      "validation.csv": {
+        "bytes": 13001838,
+        "sha256": "90982ec33e40149cc11c831a1221454aa85d30000a4170f997398d4a1ae6c0e6",
+        "modified": "2026-09-15T19:14:41.173517+00:00"
+      },
+      "validation.fasta": {
+        "bytes": 368165847,
+        "sha256": "4d2c8018d48cdf6b3952f9e9a55e529665115566f7f30a88aabb0dd40bb0c68b",
+        "modified": "2026-09-15T19:14:34.151000+00:00"
+      }
+    }
+  },
+  "source": {
+    "capture_environment.py": {
+      "bytes": 6122,
+      "sha256": "b80958b5a3b61f5acbbaa5e5fc89226e0d18dc572a428c5cea2c12a3ca0e38b5",
+      "modified": "2026-09-23T14:30:36.560246+00:00"
+    },
+    "esm2/__init__.py": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "modified": "2026-09-23T14:25:48.787002+00:00"
+    },
+    "esm2/data.py": {
+      "bytes": 4037,
+      "sha256": "cee698d93d657871a2bf1a091f3d27d8a74eb0fb0510ec047ddc9fb3b4a7f78d",
+      "modified": "2026-09-23T14:33:37.306229+00:00"
+    },
+    "esm2/embed.py": {
+      "bytes": 1885,
+      "sha256": "ae0b02bf90dbf701cb70cd484c1a65b3938a73b2d780e2926b556b63cd310e69",
+      "modified": "2026-09-23T14:26:28.790418+00:00"
+    },
+    "esm2/metrics.py": {
+      "bytes": 2658,
+      "sha256": "e611d2245a47d80cf8686ad618a138f9139ecd98453af6f4c1021e456d5d5121",
+      "modified": "2026-09-23T14:27:01.012483+00:00"
+    },
+    "esm2/model.py": {
+      "bytes": 1276,
+      "sha256": "68fbf8fb2360c25f16864575e7e49b352994732ed9cc1596eb0708f902817d0b",
+      "modified": "2026-09-23T14:26:36.336017+00:00"
+    },
+    "esm2/orfs.py": {
+      "bytes": 984,
+      "sha256": "e660330501578d2ead0caf5d9ebafe46effef57cb779c8bdac031fd3eae0b49d",
+      "modified": "2026-09-23T14:26:19.067895+00:00"
+    },
+    "extract_features.py": {
+      "bytes": 4087,
+      "sha256": "8b88754eeccf17cd532c03309f157853787ccbf2794eef8f3986c1a5128ba0dd",
+      "modified": "2026-09-23T14:27:31.108133+00:00"
+    },
+    "summarize.py": {
+      "bytes": 6624,
+      "sha256": "33571c29257eeddf046765cad4c39588125e745d154fa4b81e553be1edc2ef5e",
+      "modified": "2026-09-24T03:51:21.383076+00:00"
+    },
+    "train_eval.py": {
+      "bytes": 7462,
+      "sha256": "f28ea8386b3816228b3e1326bc4a7c7023880b015e0b6c734b3c5295b14d1006",
+      "modified": "2026-09-23T14:29:30.911506+00:00"
+    },
+    "verify_components.py": {
+      "bytes": 4142,
+      "sha256": "ab98708ae6771e32c94fb8c249f84cd9bd6f55a1558a75cacf04e514d28b586a",
+      "modified": "2026-09-23T14:27:52.100851+00:00"
+    }
+  },
+  "cache": {
+    "files": [
+      "emb_test.npz",
+      "emb_train.npz",
+      "emb_validation.npz",
+      "subsample_test.csv",
+      "subsample_train.csv",
+      "subsample_validation.csv"
+    ]
+  },
+  "random_seed": 42
+}

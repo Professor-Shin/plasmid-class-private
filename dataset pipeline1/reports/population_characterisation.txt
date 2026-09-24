@@ -1,0 +1,75 @@
+==============================================================================
+FILTERED POPULATION CHARACTERISATION
+(all assemblies passing the step-1 filter, not just the sampled subset)
+==============================================================================
+
+Assemblies passing the filter ....... 66,230
+Distinct species_taxid .............. 15,927
+
+-- 1. DOMAIN (resolved from NCBI Taxonomy, not the 'group' column) --------
+
+   NOTE: the assembly_summary 'group' column reads 'bacteria' for every
+   row, but it reflects the FTP directory. NCBI's refseq/bacteria
+   division also distributes Archaea, so 'group' cannot establish the
+   domain on its own.
+
+   Bacteria                   66,230 assemblies  (100.00%)   15,927 species
+
+-- 2. REPLICON CONTENT (from GENOME_REPORTS/prokaryotes.txt) -------------
+
+   Assemblies matched to the bulk report  39,569 (59.74%)
+   Unmatched (no replicon breakdown) ..... 26,661
+
+   Total chromosomes ..................... 40,903
+   Total plasmids ........................ 47,227
+   Total other/unnamed replicons ......... 905
+   Total replicons ....................... 89,035
+   Plasmid share of replicons ............ 53.04%
+
+   Assemblies with >=1 plasmid ........... 17,676  (44.67%)
+   Assemblies with no plasmid ............ 21,893
+   Assemblies with >1 plasmid ............ 10,975
+   Assemblies with >1 chromosome ......... 1,851
+   Max plasmids in one assembly .......... 28
+
+   Plasmids per assembly:
+       0 plasmid(s)    21,893 assemblies
+       1 plasmid(s)     6,701 assemblies
+       2 plasmid(s)     4,020 assemblies
+       3 plasmid(s)     2,540 assemblies
+       4 plasmid(s)     1,749 assemblies
+       5 plasmid(s)     1,049 assemblies
+       6 plasmid(s)       648 assemblies
+       7 plasmid(s)       362 assemblies
+       8 plasmid(s)       225 assemblies
+       9 plasmid(s)       112 assemblies
+      10 plasmid(s)        93 assemblies
+      11 plasmid(s)        53 assemblies
+
+-- 3. FULL-POPULATION ESTIMATE -------------------------------------------
+
+   The bulk report is a periodic snapshot that lags assembly_summary.txt,
+   so the newest assemblies are simply absent from it. The extrapolation
+   below rests on assembly_summary's own `replicon_count` column, which
+   reproduces the bulk report's replicon total for 98.74% of the
+   matched assemblies - so TOTAL replicons are near-exact for all 66,230,
+   and only the chromosome/plasmid SPLIT of the unmatched part is inferred.
+
+   Measured on the matched 39,569: 1.0337 chromosomes per assembly
+
+                                exact (matched)  estimated (rest)    population
+   assemblies                            39,569            26,661        66,230
+   total replicons                       89,035            62,884       151,919
+   chromosomes                           40,903            27,560        68,463
+   plasmids                              47,227            34,714        81,941
+
+   Caveat: the unmatched assemblies are systematically NEWER, and plasmid
+   carriage varies by taxon and by sequencing era, so the estimated half
+   carries real uncertainty. Only the 'exact' column is measured.
+
+-- 4. BY DOMAIN ----------------------------------------------------------
+
+   domain                  assemblies  chromosomes   plasmids  % w/ plasmid
+   Bacteria                    39,569       40,903     47,227        44.67%
+
+==============================================================================

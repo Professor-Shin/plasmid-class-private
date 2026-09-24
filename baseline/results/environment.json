@@ -1,0 +1,322 @@
+{
+  "captured_at": "2026-09-24T03:52:03.298865+00:00",
+  "hardware": {
+    "logical_cpus": 8,
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+    "cpu_model": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+    "physical_cores": 4,
+    "logical_cores": 8,
+    "max_clock_mhz": 2304,
+    "ram_bytes": 8458129408,
+    "storage": "ADATA LEGEND 710"
+  },
+  "os": {
+    "system": "Windows",
+    "release": "11",
+    "version": "10.0.22631",
+    "edition": "Microsoft Windows 11 Pro"
+  },
+  "python": {
+    "version": "3.13.5",
+    "executable": "C:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+    "implementation": "CPython"
+  },
+  "packages": {
+    "torch": "2.11.0",
+    "numpy": "2.4.4",
+    "pandas": "3.0.2",
+    "scikit-learn": "1.8.0",
+    "scipy": "1.17.1",
+    "PyYAML": "6.0.3",
+    "joblib": "1.5.3",
+    "threadpoolctl": "3.6.0"
+  },
+  "torch": {
+    "version": "2.11.0+cpu",
+    "cuda_available": false,
+    "default_num_threads": 4,
+    "parallel_info": [
+      "ATen/Parallel:",
+      "\tat::get_num_threads() : 4",
+      "\tat::get_num_interop_threads() : 4",
+      "OpenMP 2019",
+      "\tomp_get_max_threads() : 4",
+      "Intel(R) oneAPI Math Kernel Library Version 2025.3-Product Build 20251007 for Intel(R) 64 architecture applications",
+      "\tmkl_get_max_threads() : 4",
+      "Intel(R) MKL-DNN v3.10.2 (Git Hash f1d471933dc852f956fd05389f9313c7148783d5)",
+      "std::thread::hardware_concurrency() : 8",
+      "Environment variables:",
+      "\tOMP_NUM_THREADS : [not set]",
+      "\tMKL_NUM_THREADS : [not set]",
+      "ATen parallel backend: OpenMP"
+    ]
+  },
+  "thread_settings": {
+    "plasflow": 2,
+    "zou": 4,
+    "OMP_NUM_THREADS": null,
+    "MKL_NUM_THREADS": null
+  },
+  "upstream": {
+    "plasflow": {
+      "url": "https://github.com/smaegol/PlasFlow",
+      "commit": "45604ff637c65f709dabff63e665fa60896be241",
+      "commit_date": "2021-06-28",
+      "files_read": [
+        "PlasFlow.py",
+        "scripts/PlasFlow_train.py"
+      ]
+    },
+    "zou": {
+      "url": "https://github.com/BV-BRC-dependencies/zou-plasmid-prediction",
+      "commit": "2519c21ddfbd3900d272c5a40b59e1501278ecd0",
+      "commit_date": "2022-11-15",
+      "files_read": [
+        "model_train.py",
+        "model_predict.py",
+        "README.md",
+        "kmer_order.csv"
+      ]
+    },
+    "plasclass": {
+      "url": "https://github.com/Shamir-Lab/PlasClass",
+      "files_read": [
+        "plasclass/train.py",
+        "plasclass/plasclass.py",
+        "plasclass/plasclass_utils.py"
+      ]
+    },
+    "cloned_on": "2026-09-23"
+  },
+  "config": {
+    "path": "config.yaml",
+    "sha256": "30f2798b9f98f90e3c719b0769580e70f2bd2dbf90ca23912a31d89a195d4d7b",
+    "values": {
+      "upstream": {
+        "plasflow": {
+          "url": "https://github.com/smaegol/PlasFlow",
+          "commit": "45604ff637c65f709dabff63e665fa60896be241",
+          "commit_date": "2021-06-28",
+          "files_read": [
+            "PlasFlow.py",
+            "scripts/PlasFlow_train.py"
+          ]
+        },
+        "zou": {
+          "url": "https://github.com/BV-BRC-dependencies/zou-plasmid-prediction",
+          "commit": "2519c21ddfbd3900d272c5a40b59e1501278ecd0",
+          "commit_date": "2022-11-15",
+          "files_read": [
+            "model_train.py",
+            "model_predict.py",
+            "README.md",
+            "kmer_order.csv"
+          ]
+        },
+        "plasclass": {
+          "url": "https://github.com/Shamir-Lab/PlasClass",
+          "files_read": [
+            "plasclass/train.py",
+            "plasclass/plasclass.py",
+            "plasclass/plasclass_utils.py"
+          ]
+        },
+        "cloned_on": "2026-09-23"
+      },
+      "dataset_dir": "../dataset pipeline1/data/dataset",
+      "cache_dir": "cache",
+      "results_dir": "results",
+      "fragment_length": 5000,
+      "random_seed": 42,
+      "block_bytes": 67108864,
+      "plasflow": {
+        "models": [
+          {
+            "k": 5,
+            "hidden": [
+              20,
+              20
+            ]
+          },
+          {
+            "k": 6,
+            "hidden": [
+              20,
+              20
+            ]
+          },
+          {
+            "k": 7,
+            "hidden": [
+              30
+            ]
+          }
+        ],
+        "torch_threads": 2,
+        "batch_size": 32,
+        "learning_rate": 0.05,
+        "max_steps": 50000,
+        "eval_every": 2500,
+        "eval_subset": 6000,
+        "threshold": 0.7
+      },
+      "zou": {
+        "k": 6,
+        "canonical": true,
+        "n_models": 3,
+        "torch_threads": 4,
+        "batch_size": 256,
+        "learning_rate": 0.001,
+        "l2": 0.0001,
+        "dropout": [
+          0.4,
+          0.4,
+          0.5,
+          0.2
+        ],
+        "balanced": {
+          "max_epochs": 400,
+          "patience": 80
+        },
+        "full": {
+          "max_epochs": 15,
+          "patience": 4
+        },
+        "min_delta": 0.001
+      },
+      "plasclass": {
+        "ks": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "length_bin": 1000,
+        "solver": "lbfgs",
+        "C": 1.0,
+        "max_iter": 1000,
+        "chunk_rows": 2000
+      },
+      "regimes": [
+        "balanced",
+        "full"
+      ]
+    }
+  },
+  "dataset": {
+    "directory": "D:\\senior project\\dataset pipeline1\\data\\dataset",
+    "files": {
+      "test.csv": {
+        "bytes": 12630995,
+        "modified": "2026-09-15T19:14:41.667121+00:00",
+        "sha256": "960e57b6b2596ddbfb2bf3c690915abb19fe731c7fb7fb7e5c730f2b4b2166e5"
+      },
+      "test.fasta": {
+        "bytes": 368242212,
+        "modified": "2026-09-15T19:14:34.151000+00:00",
+        "sha256": "b08c1a24028591ca4ec76005c2caaaa006fca2559e26512a87f579c981f4d501"
+      },
+      "train.csv": {
+        "bytes": 59128170,
+        "modified": "2026-09-15T19:14:40.634972+00:00",
+        "sha256": "4537babcbf959badb775abce1e8960e6b0da7bb970ac7bf338184b80b5fe9c77"
+      },
+      "train.fasta": {
+        "bytes": 1718273592,
+        "modified": "2026-09-15T19:14:34.151000+00:00",
+        "sha256": "dc501eb6880875244a07c358784da39be61f16c47a3872a3f40256cb2635e20f"
+      },
+      "validation.csv": {
+        "bytes": 13001838,
+        "modified": "2026-09-15T19:14:41.173517+00:00",
+        "sha256": "90982ec33e40149cc11c831a1221454aa85d30000a4170f997398d4a1ae6c0e6"
+      },
+      "validation.fasta": {
+        "bytes": 368165847,
+        "modified": "2026-09-15T19:14:34.151000+00:00",
+        "sha256": "4d2c8018d48cdf6b3952f9e9a55e529665115566f7f30a88aabb0dd40bb0c68b"
+      }
+    }
+  },
+  "source": {
+    "baselines/__init__.py": {
+      "bytes": 0,
+      "modified": "2026-09-22T21:40:27.829434+00:00",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "baselines/data.py": {
+      "bytes": 5121,
+      "modified": "2026-09-22T21:40:49.229086+00:00",
+      "sha256": "1afb1ed472089ecb544426a5fcdc49095cd1903fd00d5f0cf83aa3c3ce6403bf"
+    },
+    "baselines/features.py": {
+      "bytes": 6183,
+      "modified": "2026-09-24T02:35:31.385730+00:00",
+      "sha256": "936a49dbc17040754326ead4aa3557bc0f2f30faa0c6b185e233f065bc4329e3"
+    },
+    "baselines/metrics.py": {
+      "bytes": 3215,
+      "modified": "2026-09-22T21:41:48.570963+00:00",
+      "sha256": "9d69dadf7486d35df8647fcf76013e913b579983b8dc35e8fa45fd8a5411b956"
+    },
+    "baselines/models.py": {
+      "bytes": 2537,
+      "modified": "2026-09-22T21:41:34.191451+00:00",
+      "sha256": "8ab990e84b44f91af196d7d6d4432668af52caad44fa6e0cbc8e67cdedaf9cc0"
+    },
+    "baselines/train.py": {
+      "bytes": 1312,
+      "modified": "2026-09-22T22:04:53.725156+00:00",
+      "sha256": "379fe4c33c06c333053f56df867e9aae2e66c0ebd8b47770ac311fe211d38a9a"
+    },
+    "capture_environment.py": {
+      "bytes": 5952,
+      "modified": "2026-09-23T06:16:33.460213+00:00",
+      "sha256": "e709696f496a37317a49d957af664b6b429e80209ec2359d2fce1e3cd8015cfb"
+    },
+    "prepare_features.py": {
+      "bytes": 4753,
+      "modified": "2026-09-24T02:35:41.442583+00:00",
+      "sha256": "670d4806ae74bd5cc36ba98fed7f224f6749880994c49f2332ee91f9ad4d84ab"
+    },
+    "run_plasclass.py": {
+      "bytes": 7597,
+      "modified": "2026-09-23T20:31:04.679895+00:00",
+      "sha256": "87ef1693ad5ff58931c2971ebb7da0a653d58d27b3b0de9b8becc447ab56d8a4"
+    },
+    "run_plasflow.py": {
+      "bytes": 7252,
+      "modified": "2026-09-22T22:04:55.832598+00:00",
+      "sha256": "c1281253e27e41bad70cc334d18c25ea197870af272156844538e04495d11149"
+    },
+    "run_zou.py": {
+      "bytes": 7570,
+      "modified": "2026-09-22T22:04:57.941767+00:00",
+      "sha256": "22e1fbf8e405f1139e8f72b2eec69f4e53727e42ed651b4e7e11b800d5c0fc3b"
+    },
+    "summarize.py": {
+      "bytes": 6493,
+      "modified": "2026-09-23T20:31:09.524282+00:00",
+      "sha256": "d6b331e3eb53e3bba96a4f7e9600f3b060be89467365c58736bf20ce06b77107"
+    },
+    "verify_features.py": {
+      "bytes": 4070,
+      "modified": "2026-09-22T21:44:52.827706+00:00",
+      "sha256": "9f1de8ebeb69a82d9848e4f1a64a603aaeedb22341abd9f3a5491a46200c818f"
+    }
+  },
+  "reference_files": {
+    "kmc_kmer_order.csv": {
+      "bytes": 16640,
+      "modified": "2026-09-22T21:41:59.201634+00:00",
+      "sha256": "f55b98fd95af4797bf712989254de2a24d3774f8d06ef3b3a0896852191ccb54"
+    }
+  },
+  "cache": {
+    "n_files": 62,
+    "total_bytes": 33715502637
+  },
+  "random_seed": 42
+}

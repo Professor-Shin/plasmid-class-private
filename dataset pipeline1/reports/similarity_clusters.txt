@@ -1,0 +1,49 @@
+==============================================================================
+REDUNDANCY / SIMILARITY ANALYSIS (parent replicons, before splitting)
+==============================================================================
+
+Method .................... MinHash sketching + Mash ANI estimate
+k-mer size ................ 21
+sketch size ............... 2000
+ANI threshold ............. 0.95
+min length ratio .......... 0.9 (coverage proxy)
+containment threshold ..... 0.9
+linkage ................... single
+
+Replicons clustered ....... 869
+Clusters .................. 843
+Multi-member clusters ..... 14
+Largest cluster ........... 7 replicons
+Exact-duplicate links ..... 0
+Similarity-linked pairs ... 40
+  by ANI + length ratio ... 38
+  by containment .......... 1
+  of which cross-type ..... 0 (chromosome <-> plasmid)
+  of which same assembly .. 12
+Redundancy removed from
+  the splitting unit ...... 26 replicons absorbed into clusters
+
+INTERPRETATION / CAVEATS
+  * Two replicons are linked when EITHER estimated ANI >= 0.95 with a
+    length ratio >= 0.9, OR the shorter one's containment in the longer
+    one is >= 0.9. Both are EXPERIMENTAL CRITERIA chosen for this
+    dataset, not universally correct biological thresholds. Changing
+    them changes the split, so they are recorded in config.yaml and in
+    reports/run_manifest.json.
+  * Containment exists because Jaccard collapses for unequal lengths:
+    a small plasmid that is essentially a subsequence of a larger
+    replicon would otherwise be free to land in a different split.
+  * MinHash estimates whole-sequence k-mer similarity. It is not an
+    alignment, so the length ratio only approximates coverage.
+  * Containment is only trusted on >= 50 hashes of shared sketch range.
+    It is therefore under-powered for extremely unequal pairs (a 10-kb
+    plasmid inside a 5-Mb chromosome): such containment would need an
+    alignment to establish, and is not claimed here either way.
+  * Chromosomes and plasmids WERE compared against each other. Shared
+    sequence between them is biologically real (HGT, mobile elements,
+    prophage, AMR genes); any cross-type link is listed in
+    reports/similarity_pairs.csv rather than assumed impossible.
+  * Clustering guarantees only that identical and near-identical
+    parent replicons never straddle train/validation/test. It does not
+    claim the splits are free of all homology.
+==============================================================================

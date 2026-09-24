@@ -1,0 +1,87 @@
+# Baseline experiments: PlasFlow (NAR 2018) and Zou et al. (PLoS ONE 2022)
+# re-implemented and retrained on the RefSeq plasmid-vs-chromosome 5-kb fragment dataset.
+
+# Exact upstream sources the architectures were read from, recorded so the
+# re-implementation can be audited against the code it claims to follow.
+upstream:
+  plasflow:
+    url: "https://github.com/smaegol/PlasFlow"
+    commit: "45604ff637c65f709dabff63e665fa60896be241"
+    commit_date: "2021-06-28"
+    files_read: ["PlasFlow.py", "scripts/PlasFlow_train.py"]
+  zou:
+    url: "https://github.com/BV-BRC-dependencies/zou-plasmid-prediction"
+    commit: "2519c21ddfbd3900d272c5a40b59e1501278ecd0"
+    commit_date: "2022-11-15"
+    files_read: ["model_train.py", "model_predict.py", "README.md", "kmer_order.csv"]
+  plasclass:
+    url: "https://github.com/Shamir-Lab/PlasClass"
+    commit: "bcf19c7de9022344afc075edbfa2facf8bf38c57"
+    commit_date: "2023-07-25"
+    files_read: ["plasclass/train.py", "plasclass/plasclass.py", "plasclass/plasclass_utils.py"]
+    note: >-
+      The link originally supplied (gitlab.com/sirarredondo/Plasmid_Assembly) is a
+      PlasmidSPAdes/Recycler/cBAR/PlasmidFinder assembly pipeline from 2016 and contains
+      no PlasClass code, so the architecture was read from the official repository.
+  cloned_on: "2026-09-23"
+
+dataset_dir: "../dataset pipeline1/data/dataset"
+cache_dir: "cache"
+results_dir: "results"
+
+fragment_length: 5000
+random_seed: 42
+
+# Peak RAM budget for one feature block held in memory (bytes).
+block_bytes: 67108864
+
+plasflow:
+  # Krawczyk et al. 2018 use a voting ensemble of three DNNClassifiers:
+  # 5-mer and 6-mer with hidden [20, 20], 7-mer with hidden [30]; ReLU.
+  models:
+    - {k: 5, hidden: [20, 20]}
+    - {k: 6, hidden: [20, 20]}
+    - {k: 7, hidden: [30]}
+  torch_threads: 2          # benchmarked optimum for batch-32 steps on this machine
+  batch_size: 32            # tf.contrib.learn.DNNClassifier default
+  learning_rate: 0.05       # DNNClassifier default Adagrad learning rate
+  max_steps: 50000          # matches the released checkpoints (model.ckpt-50000)
+  eval_every: 2500
+  eval_subset: 6000         # validation rows sampled for the learning curve only
+  threshold: 0.7            # PlasFlow.py --threshold default
+
+zou:
+  k: 6
+  canonical: true           # KMC counts canonical k-mers -> 2080 features
+  n_models: 3               # paper's three-vote ensemble
+  torch_threads: 4          # benchmarked optimum for batch-256 steps on this machine
+  batch_size: 256
+  learning_rate: 0.001
+  l2: 0.0001
+  dropout: [0.4, 0.4, 0.5, 0.2]
+  balanced:
+    max_epochs: 400         # model_train.py value
+    patience: 80            # model_train.py EarlyStopping patience
+  full:
+    max_epochs: 15          # step-matched to the paper's budget (see REPORT.md)
+    patience: 4
+  min_delta: 0.001
+
+plasclass:
+  # Canonical k-mer frequencies for k=3..7, each k normalised to sum to 1 and then
+  # concatenated: 32 + 136 + 512 + 2080 + 8192 = 10952 features.
+  ks: [3, 4, 5, 6, 7]
+  # PlasClass routes a sequence to the model whose length bin it falls in; with
+  # scales [1000, 10000, 100000, 500000] a 5000 bp fragment goes to the "1000" model,
+  # so exactly one model is trained here.
+  length_bin: 1000
+  solver: "lbfgs"           # same objective as the released liblinear fit, see REPORT.md
+  C: 1.0
+  max_iter: 1000
+  chunk_rows: 2000
+
+# Regime A reproduces the papers' class-balanced training condition,
+# regime B trains on the dataset's natural 43:1 imbalance.
+# PlasClass only has regime A: its own training code always samples an equal number
+# of fragments per class.
+regimes: ["balanced", "full"]
