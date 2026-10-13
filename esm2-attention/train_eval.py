@@ -140,7 +140,13 @@ def run_variant(cfg, sets, tensors, name, blocks, log):
         f"{'(' + ', '.join(aux_names) + ')' if aux_names else '(ORF embeddings only)'}")
     train_y = torch.tensor(sets["train"].label, dtype=torch.float32)
 
-    per_seed, final_probs = {}, {"validation": [], "test": []}
+    # Two checkpoints are reported per seed. The model overfits (train loss keeps
+    # falling while validation AUPRC plateaus), so the last epoch is not the best
+    # epoch, and which one you report changes the ranking of the variants. "best"
+    # is early stopping done after the fact: the epoch with the highest weighted
+    # validation AUPRC.
+    per_seed = {}
+    store = {tag: {"validation": [], "test": []} for tag in ("final", "best")}
     for i in range(cfg["train"]["n_seeds"]):
         seed = cfg["random_seed"] + 100 * i
         log(f"  --- seed {seed} ({i + 1}/{cfg['train']['n_seeds']})")
@@ -148,9 +154,16 @@ def run_variant(cfg, sets, tensors, name, blocks, log):
         net, best_state, best_epoch, history = train_one(
             cfg, aux_dim, tensors["train"], aux["train"], train_y,
             tensors["validation"], aux["validation"], sets["validation"], seed, log)
+
         probs = {s: predict(net, tensors[s], aux[s]) for s in ("validation", "test")}
+        final_state = copy.deepcopy(net.state_dict())
+        net.load_state_dict(best_state)
+        best_probs = {s: predict(net, tensors[s], aux[s]) for s in ("validation", "test")}
+        net.load_state_dict(final_state)
+
         for split in ("validation", "test"):
-            final_probs[split].append(probs[split])
+            store["final"][split].append(probs[split])
+            store["best"][split].append(best_probs[split])
         tuned = metrics.best_f1_threshold(sets["validation"].label, probs["validation"],
                                           sets["validation"].weight)
         per_seed[f"seed{seed}"] = {
@@ -160,20 +173,26 @@ def run_variant(cfg, sets, tensors, name, blocks, log):
             "test": evaluate("final", sets["test"], probs["test"], tuned),
         }
         m = per_seed[f"seed{seed}"]["test"]["weighted"]
-        log(f"    test (weighted): auprc={m['auprc']:.4f} f1={m['f1']:.4f} "
-            f"mcc={m['mcc']:.4f}")
+        log(f"    test (weighted, final epoch): auprc={m['auprc']:.4f} "
+            f"f1={m['f1']:.4f} mcc={m['mcc']:.4f} | best epoch was {best_epoch}")
 
-    mean = {s: np.mean(final_probs[s], axis=0) for s in final_probs}
-    tuned = metrics.best_f1_threshold(sets["validation"].label, mean["validation"],
-                                      sets["validation"].weight)
-    ensemble = evaluate("ensemble", sets["test"], mean["test"], tuned)
-    ensemble["tuned_threshold"] = tuned
-    m, mt = ensemble["weighted"], ensemble["weighted_tuned"]
-    log(f"  ENSEMBLE test weighted: f1={m['f1']:.4f} mcc={m['mcc']:.4f} "
-        f"auprc={m['auprc']:.4f} | tuned f1={mt['f1']:.4f} mcc={mt['mcc']:.4f} | "
-        f"replicon mcc={ensemble['replicon_level']['mcc']:.4f}")
-    return {"aux_dim": aux_dim, "aux_names": aux_names, "blocks": list(blocks),
-            "per_seed": per_seed, "ensemble": ensemble}, mean
+    out = {"aux_dim": aux_dim, "aux_names": aux_names, "blocks": list(blocks),
+           "per_seed": per_seed}
+    means = {}
+    for tag in ("final", "best"):
+        mean = {s: np.mean(store[tag][s], axis=0) for s in store[tag]}
+        means[tag] = mean
+        tuned = metrics.best_f1_threshold(sets["validation"].label, mean["validation"],
+                                          sets["validation"].weight)
+        ens = evaluate(f"ensemble_{tag}", sets["test"], mean["test"], tuned)
+        ens["tuned_threshold"] = tuned
+        out[f"ensemble_{tag}"] = ens
+        m, mt = ens["weighted"], ens["weighted_tuned"]
+        log(f"  ENSEMBLE[{tag:5s}] test weighted: f1={m['f1']:.4f} mcc={m['mcc']:.4f} "
+            f"auprc={m['auprc']:.4f} | tuned f1={mt['f1']:.4f} mcc={mt['mcc']:.4f} | "
+            f"replicon mcc={ens['replicon_level']['mcc']:.4f}")
+    out["ensemble"] = out["ensemble_best"]   # headline = early-stopped checkpoint
+    return out, means
 
 
 def main():
@@ -204,17 +223,22 @@ def main():
 
     rows = []
     for name, blocks in cfg["variants"].items():
-        entry, mean = run_variant(cfg, sets, tensors, name, blocks, log)
+        entry, means = run_variant(cfg, sets, tensors, name, blocks, log)
         payload["variants"][name] = entry
-        np.save(results / "probs" / f"{name.replace('+', '_')}_ensemble_test.npy", mean["test"])
-        e = entry["ensemble"]
-        rows.append({"variant": name, "aux_dim": entry["aux_dim"],
-                     "mcc": round(e["weighted"]["mcc"], 4),
-                     "f1": round(e["weighted"]["f1"], 4),
-                     "auprc": round(e["weighted"]["auprc"], 4),
-                     "mcc_tuned": round(e["weighted_tuned"]["mcc"], 4),
-                     "f1_tuned": round(e["weighted_tuned"]["f1"], 4),
-                     "replicon_mcc": round(e["replicon_level"]["mcc"], 4)})
+        slug = name.replace("+", "_")
+        for tag in ("final", "best"):
+            np.save(results / "probs" / f"{slug}_ensemble_{tag}_test.npy", means[tag]["test"])
+        # gc_signal.py reads this name; point it at the headline checkpoint
+        np.save(results / "probs" / f"{slug}_ensemble_test.npy", means["best"]["test"])
+        for tag in ("best", "final"):
+            e = entry[f"ensemble_{tag}"]
+            rows.append({"variant": name, "aux_dim": entry["aux_dim"], "checkpoint": tag,
+                         "mcc": round(e["weighted"]["mcc"], 4),
+                         "f1": round(e["weighted"]["f1"], 4),
+                         "auprc": round(e["weighted"]["auprc"], 4),
+                         "mcc_tuned": round(e["weighted_tuned"]["mcc"], 4),
+                         "f1_tuned": round(e["weighted_tuned"]["f1"], 4),
+                         "replicon_mcc": round(e["replicon_level"]["mcc"], 4)})
 
     (results / "esm2_variants.json").write_text(json.dumps(payload, indent=2),
                                                 encoding="utf-8")
@@ -226,7 +250,7 @@ def main():
     # length-stratified table across variants, the answer to "5 kb is arbitrary"
     long_rows = []
     for name, entry in payload["variants"].items():
-        for r in entry["ensemble"].get("by_length", []):
+        for r in entry["ensemble_best"].get("by_length", []):
             long_rows.append({"variant": name, "length_bucket": r["length_bucket"],
                               "n_sampled": r.get("n_sampled"),
                               "mcc": round(r.get("mcc", float("nan")), 4),
