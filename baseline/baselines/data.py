@@ -32,7 +32,13 @@ def load_config(path="config.yaml") -> dict:
 def load_table(dataset_dir: Path, split: str) -> pd.DataFrame:
     cols = ["fragment_id", "replicon_id", "assembly_accession", "replicon_type",
             "label", "length", "cluster_id", "gc_content"]
-    return pd.read_csv(Path(dataset_dir) / f"{split}.csv", usecols=cols)
+    path = Path(dataset_dir) / f"{split}.csv"
+    # length_bucket exists only in the mixed-length dataset, so the fixed-5-kb
+    # dataset keeps loading through this same path.
+    available = pd.read_csv(path, nrows=0).columns
+    if "length_bucket" in available:
+        cols = cols + ["length_bucket"]
+    return pd.read_csv(path, usecols=cols)
 
 
 def iter_fasta(path: Path):
@@ -51,20 +57,31 @@ def iter_fasta(path: Path):
 
 def encode_split(dataset_dir: Path, cache_dir: Path, split: str, frag_len: int,
                  table: pd.DataFrame) -> Path:
-    """Write an (n_fragments, frag_len) uint8 memmap of 0-3 base codes."""
+    """Write an (n_fragments, frag_len) uint8 memmap of 0-3 base codes.
+
+    This fixed-width staging buffer only works for a fixed-length dataset. On the
+    mixed-length dataset the k-mer spectrum is counted per fragment instead (see
+    run_composition.kmer_freq), because the spectrum's width is 4^k whatever the
+    sequence length is - it is only this intermediate that needs one length.
+    """
     out = Path(cache_dir) / f"seq_{split}.u8"
     meta = out.with_suffix(".json")
     n = len(table)
     if out.exists() and meta.exists() and json.loads(meta.read_text())["n"] == n:
         return out
 
+    lengths = table["length"].to_numpy()
+    if (lengths != frag_len).any():
+        raise ValueError(
+            f"{split}: encode_split needs every fragment to be {frag_len} bp, but the "
+            f"dataset holds lengths {lengths.min()}-{lengths.max()}. Use the per-fragment "
+            "k-mer path (run_composition.py) for a mixed-length dataset.")
+
     mm = np.memmap(out, dtype=np.uint8, mode="w+", shape=(n, frag_len))
     expected = table["fragment_id"].to_numpy()
     for i, (name, seq) in enumerate(iter_fasta(Path(dataset_dir) / f"{split}.fasta")):
         if name != expected[i]:
             raise ValueError(f"{split}: FASTA record {i} is {name}, CSV says {expected[i]}")
-        if len(seq) != frag_len:
-            raise ValueError(f"{split}: {name} has length {len(seq)}, expected {frag_len}")
         mm[i] = CODE_LUT[np.frombuffer(seq, dtype=np.uint8)]
     if i + 1 != n:
         raise ValueError(f"{split}: FASTA holds {i + 1} records, CSV holds {n}")

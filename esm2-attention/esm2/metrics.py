@@ -53,6 +53,33 @@ def best_f1_threshold(y_true, proba, weight=None) -> float:
     return best_t
 
 
+BUCKET_ORDER = ["1-2kb", "2-5kb", "5-10kb", "10-25kb", "25-50kb", "50-100kb"]
+
+
+def length_bucket_metrics(buckets, y_true, proba, weight=None, threshold=0.5) -> pd.DataFrame:
+    """Weighted metrics per fragment-length bucket (the length-robustness table).
+
+    Weights re-inflate each bucket to the composition of the full split, so the
+    buckets stay comparable even though the subsample is class-stratified.
+    """
+    buckets = np.asarray(buckets)
+    y_true = np.asarray(y_true)
+    proba = np.asarray(proba)
+    w = None if weight is None else np.asarray(weight)
+    rows = []
+    present = [b for b in BUCKET_ORDER if (buckets == b).any()]
+    for bucket in present + [b for b in np.unique(buckets) if b not in BUCKET_ORDER]:
+        sel = buckets == bucket
+        if not sel.any() or len(np.unique(y_true[sel])) < 2:
+            rows.append({"length_bucket": bucket, "n_sampled": int(sel.sum()),
+                         "note": "single-class"})
+            continue
+        rows.append({"length_bucket": bucket,
+                     **binary_metrics(y_true[sel], proba[sel], threshold,
+                                      None if w is None else w[sel])})
+    return pd.DataFrame(rows)
+
+
 def replicon_metrics(replicon_id, y_true, proba, threshold=0.5) -> dict:
     """Average a replicon's sampled fragment probabilities, then score replicons."""
     df = pd.DataFrame({"replicon_id": replicon_id, "label": y_true, "proba": proba})

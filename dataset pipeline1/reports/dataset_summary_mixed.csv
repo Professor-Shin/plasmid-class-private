@@ -1,0 +1,4 @@
+split,fragments,fragments_chromosome,fragments_plasmid,plasmid_fraction,replicons,chromosomes,plasmids,assemblies,clusters,species,total_bp,fragment_ratio
+train,79094,76889,2205,0.027878,644,372,272,397,622,397,1688919687,0.7004
+validation,16891,16437,454,0.026878,135,80,55,118,131,118,362239123,0.1496
+test,16944,16528,416,0.024551,129,75,54,116,129,116,361913278,0.15

@@ -61,6 +61,33 @@ def plasflow_threshold_rule(y_true: np.ndarray, proba: np.ndarray, threshold: fl
     return out
 
 
+BUCKET_ORDER = ["1-2kb", "2-5kb", "5-10kb", "10-25kb", "25-50kb", "50-100kb"]
+
+
+def length_bucket_metrics(buckets, y_true: np.ndarray, proba: np.ndarray,
+                          threshold: float = 0.5) -> pd.DataFrame:
+    """Metrics per fragment-length bucket.
+
+    This is the headline breakdown for the expert's "5 kb is a magic number"
+    comment: one length-robust model, scored as a function of input length,
+    instead of one model per hand-picked length.
+    """
+    buckets = np.asarray(buckets)
+    y_true = np.asarray(y_true)
+    proba = np.asarray(proba)
+    rows = []
+    present = [b for b in BUCKET_ORDER if (buckets == b).any()]
+    for bucket in present + [b for b in np.unique(buckets) if b not in BUCKET_ORDER]:
+        sel = buckets == bucket
+        if not sel.any() or len(np.unique(y_true[sel])) < 2:
+            rows.append({"length_bucket": bucket, "n": int(sel.sum()),
+                         "n_plasmid": int((y_true[sel] == 1).sum()), "note": "single-class"})
+            continue
+        rows.append({"length_bucket": bucket,
+                     **binary_metrics(y_true[sel], proba[sel], threshold)})
+    return pd.DataFrame(rows)
+
+
 def replicon_metrics(table: pd.DataFrame, proba: np.ndarray, threshold: float = 0.5) -> dict:
     """Aggregate fragment probabilities to their parent replicon (mean probability)."""
     df = pd.DataFrame({"replicon_id": table["replicon_id"].to_numpy(),

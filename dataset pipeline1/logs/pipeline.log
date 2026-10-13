@@ -194,3 +194,44 @@ validation          0.15       124           124         105        131         
 2026-09-16 04:50:45,942 | INFO    | analyze_population     | Taxonomy cache: D:\senior project\dataset pipeline1\data\metadata\taxonomy_species.csv (15927 taxids)
 2026-09-16 04:50:48,155 | INFO    | analyze_population     | prokaryotes.txt rows usable: 729437
 2026-09-16 04:50:50,134 | INFO    | analyze_population     | Wrote reports/population_characterisation.txt and population_replicons.csv
+2026-10-14 02:22:20,516 | INFO    | step07.fragments       | Fragmenting 869 parent replicons (mode=random_length, log_uniform length in [1000, 100000] bp, seed=42) -> D:\senior project\dataset pipeline1\data\dataset_mixed
+2026-10-14 02:22:34,077 | INFO    | step07.fragments       |   200 replicons -> 22925 fragments
+2026-10-14 02:22:46,191 | INFO    | step07.fragments       |   400 replicons -> 47817 fragments
+2026-10-14 02:22:59,443 | INFO    | step07.fragments       |   600 replicons -> 76337 fragments
+2026-10-14 02:23:13,964 | INFO    | step07.fragments       |   800 replicons -> 103546 fragments
+2026-10-14 02:23:19,906 | INFO    | step07.fragments       | Wrote D:\senior project\dataset pipeline1\data\metadata\fragments_mixed.csv (112886 fragments)
+2026-10-14 02:23:20,628 | INFO    | step07.fragments       | train          79020 fragments (chromosome=76866 plasmid=2154)
+2026-10-14 02:23:20,783 | INFO    | step07.fragments       | validation     16984 fragments (chromosome=16535 plasmid=449)
+2026-10-14 02:23:20,938 | INFO    | step07.fragments       | test           16882 fragments (chromosome=16453 plasmid=429)
+2026-10-14 02:23:29,132 | INFO    | step07.fragments       | Integrity checks passed: fragment_id sets match between FASTA and CSV, no replicon spans multiple splits, no duplicate ids
+2026-10-14 02:23:29,467 | INFO    | step07.fragments       | Fragment length distribution: {'n': 112886, 'min': 1000, 'max': 99974, 'mean': 21375, 'p1': 1048, 'p10': 1584, 'p25': 3164, 'p50': 9955, 'p75': 31324, 'p90': 62769, 'p99': 95468}
+2026-10-14 02:26:14,795 | INFO    | step05.cluster         | Clustering 908 eligible replicons (of 908 chromosome/plasmid records)
+2026-10-14 02:26:14,912 | INFO    | step05.cluster         | Exact-duplicate links: 0
+2026-10-14 02:26:14,912 | INFO    | step05.cluster         | Sketching (k=21, sketch_size=2000)...
+2026-10-14 02:26:15,375 | INFO    | step05.cluster         | Loaded 869 cached sketches from D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz
+2026-10-14 02:26:15,382 | INFO    | step05.cluster         | Sketching 39 replicons (869 served from cache)
+2026-10-14 02:26:17,506 | INFO    | step05.cluster         | Wrote sketch cache D:\senior project\dataset pipeline1\data\metadata\sketch_cache_k21_s2000.npz (908 entries)
+2026-10-14 02:26:19,136 | INFO    | step05.cluster         | Candidate pairs sharing >=1 sketched k-mer: 31823
+2026-10-14 02:26:41,392 | INFO    | step06.split           | Splitting 882 clusters (908 replicons) by fragment_count
+2026-10-14 02:26:41,404 | INFO    | step06.split           |   bucket chromosome  clusters= 507 weight= 2355323 -> {'train': 1648494, 'validation': 353580, 'test': 353249}
+2026-10-14 02:26:41,410 | INFO    | step06.split           |   bucket plasmid     clusters= 375 weight=   57315 -> {'train': 40120, 'validation': 8598, 'test': 8597}
+2026-10-14 02:26:41,427 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\train_replicons_mixed.csv (644 replicons)
+2026-10-14 02:26:41,433 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\validation_replicons_mixed.csv (135 replicons)
+2026-10-14 02:26:41,439 | INFO    | step06.split           | Wrote D:\senior project\dataset pipeline1\data\split\test_replicons_mixed.csv (129 replicons)
+2026-10-14 02:26:41,484 | INFO    | step06.split           | 
+     split  target_ratio  clusters  split_groups  assemblies  replicons  chromosomes  plasmids   total_bp  expected_fragments  expected_fragments_chromosome  expected_fragments_plasmid  actual_fragment_ratio
+     train          0.70       622           622         397        644          372       272 1688919687             1688614                        1648674                       40244                 0.6999
+validation          0.15       131           131         118        135           80        55  362239123              362178                         353613                        8625                 0.1501
+      test          0.15       129           129         116        129           75        54  361913278              361846                         353287                        8625                 0.1500
+2026-10-14 02:26:41,485 | INFO    | step06.split           | Assemblies whose replicons span >1 split: 112 (expected: chromosome and plasmid of one assembly may cluster apart)
+2026-10-14 02:26:42,212 | INFO    | step07.fragments       | Fragmenting 908 parent replicons (mode=random_length, log_uniform length in [1000, 100000] bp, seed=42) -> D:\senior project\dataset pipeline1\data\dataset_mixed
+2026-10-14 02:26:53,366 | INFO    | step07.fragments       |   200 replicons -> 21564 fragments
+2026-10-14 02:27:05,078 | INFO    | step07.fragments       |   400 replicons -> 46376 fragments
+2026-10-14 02:27:18,702 | INFO    | step07.fragments       |   600 replicons -> 73259 fragments
+2026-10-14 02:27:32,839 | INFO    | step07.fragments       |   800 replicons -> 99553 fragments
+2026-10-14 02:27:41,002 | INFO    | step07.fragments       | Wrote D:\senior project\dataset pipeline1\data\metadata\fragments_mixed.csv (112929 fragments)
+2026-10-14 02:27:41,629 | INFO    | step07.fragments       | train          79094 fragments (chromosome=76889 plasmid=2205)
+2026-10-14 02:27:41,764 | INFO    | step07.fragments       | validation     16891 fragments (chromosome=16437 plasmid=454)
+2026-10-14 02:27:41,922 | INFO    | step07.fragments       | test           16944 fragments (chromosome=16528 plasmid=416)
+2026-10-14 02:27:54,634 | INFO    | step07.fragments       | Integrity checks passed: fragment_id sets match between FASTA and CSV, no replicon spans multiple splits, no duplicate ids
+2026-10-14 02:27:54,968 | INFO    | step07.fragments       | Fragment length distribution: {'n': 112929, 'min': 1000, 'max': 99974, 'mean': 21368, 'p1': 1048, 'p10': 1584, 'p25': 3162, 'p50': 9949, 'p75': 31313, 'p90': 62758, 'p99': 95465}

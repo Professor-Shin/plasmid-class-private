@@ -19,7 +19,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .utils import StageLog, get_logger, load_config, path_for, update_manifest
+from .utils import (StageLog, get_logger, load_config, min_fragment_length, path_for,
+                    report_tag, update_manifest)
 
 SPLITS = ("train", "validation", "test")
 
@@ -30,7 +31,7 @@ def cluster_weight(group: pd.DataFrame, cfg: dict) -> int:
         return len(group)
     if basis == "bases":
         return int(group["length"].sum())
-    return int((group["length"] // int(cfg["fragments"]["length"])).sum())
+    return int((group["length"] // min_fragment_length(cfg)).sum())
 
 
 def run(cfg: dict | None = None) -> pd.DataFrame:
@@ -39,7 +40,8 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
     slog = StageLog("step06_split")
 
     meta_dir = path_for(cfg, "metadata_dir")
-    clusters = pd.read_csv(meta_dir / "clusters.csv", keep_default_na=False)
+    tag = report_tag(cfg)
+    clusters = pd.read_csv(meta_dir / f"clusters{tag}.csv", keep_default_na=False)
 
     n_all = len(clusters)
     usable = clusters[
@@ -144,12 +146,12 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
             "cluster_id", "split_group_id", "split", "sequence_sha256", "source_fasta"]
     for s in SPLITS:
         sub = usable[usable["split"] == s][cols].sort_values("replicon_id")
-        sub.to_csv(split_dir / f"{s}_replicons.csv", index=False)
-        logger.info("Wrote %s (%d replicons)", split_dir / f"{s}_replicons.csv", len(sub))
+        sub.to_csv(split_dir / f"{s}_replicons{tag}.csv", index=False)
+        logger.info("Wrote %s (%d replicons)", split_dir / f"{s}_replicons{tag}.csv", len(sub))
 
-    all_path = meta_dir / "replicons_split.csv"
+    all_path = meta_dir / f"replicons_split{tag}.csv"
     usable[cols].sort_values(["split", "replicon_id"]).to_csv(all_path, index=False)
-    cdf.sort_values("split_group_id").to_csv(meta_dir / "cluster_assignments.csv", index=False)
+    cdf.sort_values("split_group_id").to_csv(meta_dir / f"cluster_assignments{tag}.csv", index=False)
 
     # ----------------------------------------------------------- leakage check
     leaks = usable.groupby("cluster_id")["split"].nunique()
@@ -159,7 +161,7 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
     if int(usable.groupby("replicon_id")["split"].nunique().max()) > 1:
         raise RuntimeError("a replicon was assigned to more than one split")
 
-    frag_len = int(cfg["fragments"]["length"])
+    frag_len = min_fragment_length(cfg)
     usable["expected_fragments"] = usable["length"] // frag_len
     summary_rows = []
     for s in SPLITS:
@@ -185,7 +187,7 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
     summary["actual_fragment_ratio"] = (summary["expected_fragments"] / max(total_frag, 1)).round(4)
 
     reports = path_for(cfg, "reports_dir")
-    summary.to_csv(reports / "split_summary.csv", index=False)
+    summary.to_csv(reports / f"split_summary{tag}.csv", index=False)
     logger.info("\n%s", summary.to_string(index=False))
 
     # Assemblies must not straddle splits either - they normally cannot,

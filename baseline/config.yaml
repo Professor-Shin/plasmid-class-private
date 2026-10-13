@@ -25,11 +25,14 @@ upstream:
       no PlasClass code, so the architecture was read from the official repository.
   cloned_on: "2026-09-23"
 
-dataset_dir: "../dataset pipeline1/data/dataset"
-cache_dir: "cache"
-results_dir: "results"
+dataset_dir: "../dataset pipeline1/data/dataset_mixed"
+cache_dir: "cache_mixed"
+results_dir: "results_mixed"
 
-fragment_length: 5000
+# null on the mixed-length dataset: there is no single fragment length. The
+# fixed-width k-mer staging path (prepare_features.py) requires one and so only
+# applies to the original 5-kb dataset; run_composition.py counts per fragment.
+fragment_length: null
 random_seed: 42
 
 # Peak RAM budget for one feature block held in memory (bytes).

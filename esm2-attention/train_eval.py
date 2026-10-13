@@ -1,9 +1,21 @@
-"""Step 2: train the attention classifier on the cached ORF embeddings and evaluate it.
+"""Step 2: train the feature ladder on the cached ORF embeddings and evaluate it.
 
-Training follows the prototype: AdamW(lr=1e-3, weight_decay=1e-4), BCEWithLogitsLoss,
-one fragment per optimisation step, a fixed 15 epochs with no early stopping. Several
-seeds are trained so the run-to-run spread is visible, and their mean probability is
-reported as the ensemble.
+Every variant in ``variants:`` reuses the SAME cached ESM-2 embeddings and differs
+only in which whole-fragment auxiliary columns the classifier head receives:
+
+    esm2         ORF attention only - the original model, blind to non-coding DNA
+    esm2+gc      + GC content and its local heterogeneity
+    esm2+ori     + origin-of-replication composition proxy
+    esm2+gc+ori  + both
+
+Training follows the prototype: AdamW(lr=1e-3, weight_decay=1e-4),
+BCEWithLogitsLoss, one fragment per optimisation step, a fixed number of epochs
+with no early stopping. Several seeds are trained so the run-to-run spread is
+visible, and their mean probability is reported as the ensemble.
+
+Results are reported three ways, because the expert's comments are about three
+different things: overall (weighted back to the split's true composition), per
+fragment-length bucket (is the model length-robust?), and per replicon.
 """
 
 from __future__ import annotations
@@ -15,12 +27,13 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from esm2 import data, metrics, model as model_mod  # noqa: E402
+from esm2 import composition, data, metrics, model as model_mod  # noqa: E402
 
 
 def as_tensors(embeddings):
@@ -28,23 +41,45 @@ def as_tensors(embeddings):
             for i in range(len(embeddings))]
 
 
-def predict(net, tensors) -> np.ndarray:
+def aux_tensors(sets, blocks):
+    """Select the variant's auxiliary columns and standardise on train statistics.
+
+    Returns (per-split list of tensors or None, dim, feature names).
+    """
+    cols = composition.block_columns(blocks)
+    if len(cols) == 0:
+        return {s: None for s in sets}, 0, []
+    train = sets["train"].aux[:, cols].astype(np.float64)
+    mean, std = train.mean(0), train.std(0)
+    std[std == 0.0] = 1.0
+    out = {}
+    for split, es in sets.items():
+        z = (es.aux[:, cols].astype(np.float64) - mean) / std
+        out[split] = [torch.tensor(r, dtype=torch.float32) for r in z]
+    names = [composition.all_feature_names()[c] for c in cols]
+    return out, len(cols), names
+
+
+def predict(net, tensors, aux) -> np.ndarray:
     net.eval()
     out = np.empty(len(tensors), dtype=np.float64)
     with torch.no_grad():
         for i, x in enumerate(tensors):
-            out[i] = torch.sigmoid(net(x)).item()
+            logit = net(x) if aux is None else net(x, aux[i])
+            out[i] = torch.sigmoid(logit).item()
     return out
 
 
-def train_one(cfg, train_x, train_y, val_x, val_set, seed, log):
+def train_one(cfg, aux_dim, train_x, train_aux, train_y, val_x, val_aux, val_set,
+              seed, log):
     t = cfg["train"]
     torch.manual_seed(seed)
     np.random.seed(seed)
     rng = np.random.default_rng(seed)
 
     net = model_mod.EsmAttentionClassifier(cfg["esm"]["hidden_size"],
-                                           t["classifier_hidden"], t["dropout"])
+                                           t["classifier_hidden"], t["dropout"],
+                                           aux_dim=aux_dim)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(net.parameters(), lr=t["learning_rate"],
                                   weight_decay=t["weight_decay"])
@@ -57,12 +92,13 @@ def train_one(cfg, train_x, train_y, val_x, val_set, seed, log):
         total = 0.0
         for i in order:
             optimizer.zero_grad()
-            logit = net(train_x[i]).reshape(1)
+            logit = (net(train_x[i]) if train_aux is None
+                     else net(train_x[i], train_aux[i])).reshape(1)
             loss = criterion(logit, train_y[i].reshape(1))
             loss.backward()
             optimizer.step()
             total += loss.item()
-        val_proba = predict(net, val_x)
+        val_proba = predict(net, val_x, val_aux)
         auprc = metrics.average_precision_score(val_set.label, val_proba,
                                                 sample_weight=val_set.weight)
         history.append({"epoch": epoch, "train_loss": total / len(order),
@@ -76,14 +112,68 @@ def train_one(cfg, train_x, train_y, val_x, val_set, seed, log):
     return net, best_state, best_epoch, history
 
 
-def evaluate(name, y, proba, weight, replicon_id, tuned_threshold):
-    return {
-        "weighted": metrics.binary_metrics(y, proba, 0.5, weight),
-        "weighted_tuned": metrics.binary_metrics(y, proba, tuned_threshold, weight),
-        "as_sampled": metrics.binary_metrics(y, proba, 0.5),
-        "replicon_level": metrics.replicon_metrics(replicon_id, y, proba),
+def evaluate(name, es, proba, tuned_threshold):
+    """Overall, length-stratified and replicon-level scores for one prediction set."""
+    out = {
         "name": name,
+        "weighted": metrics.binary_metrics(es.label, proba, 0.5, es.weight),
+        "weighted_tuned": metrics.binary_metrics(es.label, proba, tuned_threshold, es.weight),
+        "as_sampled": metrics.binary_metrics(es.label, proba, 0.5),
+        "replicon_level": metrics.replicon_metrics(es.replicon_id, es.label, proba),
     }
+    if es.length_bucket is not None:
+        out["by_length"] = metrics.length_bucket_metrics(
+            es.length_bucket, es.label, proba, es.weight, tuned_threshold).to_dict("records")
+    # Fragments with no callable ORF are exactly where the ORF-only model is blind.
+    if es.n_orfs_real is not None:
+        free = es.n_orfs_real == 0
+        out["orf_free"] = {"n": int(free.sum())}
+        if free.sum() and len(np.unique(es.label[free])) > 1:
+            out["orf_free"].update(
+                metrics.binary_metrics(es.label[free], proba[free], 0.5, es.weight[free]))
+    return out
+
+
+def run_variant(cfg, sets, tensors, name, blocks, log):
+    aux, aux_dim, aux_names = aux_tensors(sets, blocks)
+    log(f"\n{'=' * 70}\nvariant {name}: aux_dim={aux_dim} "
+        f"{'(' + ', '.join(aux_names) + ')' if aux_names else '(ORF embeddings only)'}")
+    train_y = torch.tensor(sets["train"].label, dtype=torch.float32)
+
+    per_seed, final_probs = {}, {"validation": [], "test": []}
+    for i in range(cfg["train"]["n_seeds"]):
+        seed = cfg["random_seed"] + 100 * i
+        log(f"  --- seed {seed} ({i + 1}/{cfg['train']['n_seeds']})")
+        t0 = time.time()
+        net, best_state, best_epoch, history = train_one(
+            cfg, aux_dim, tensors["train"], aux["train"], train_y,
+            tensors["validation"], aux["validation"], sets["validation"], seed, log)
+        probs = {s: predict(net, tensors[s], aux[s]) for s in ("validation", "test")}
+        for split in ("validation", "test"):
+            final_probs[split].append(probs[split])
+        tuned = metrics.best_f1_threshold(sets["validation"].label, probs["validation"],
+                                          sets["validation"].weight)
+        per_seed[f"seed{seed}"] = {
+            "seed": seed, "best_epoch": best_epoch,
+            "train_seconds": round(time.time() - t0, 1),
+            "history": history, "tuned_threshold": tuned,
+            "test": evaluate("final", sets["test"], probs["test"], tuned),
+        }
+        m = per_seed[f"seed{seed}"]["test"]["weighted"]
+        log(f"    test (weighted): auprc={m['auprc']:.4f} f1={m['f1']:.4f} "
+            f"mcc={m['mcc']:.4f}")
+
+    mean = {s: np.mean(final_probs[s], axis=0) for s in final_probs}
+    tuned = metrics.best_f1_threshold(sets["validation"].label, mean["validation"],
+                                      sets["validation"].weight)
+    ensemble = evaluate("ensemble", sets["test"], mean["test"], tuned)
+    ensemble["tuned_threshold"] = tuned
+    m, mt = ensemble["weighted"], ensemble["weighted_tuned"]
+    log(f"  ENSEMBLE test weighted: f1={m['f1']:.4f} mcc={m['mcc']:.4f} "
+        f"auprc={m['auprc']:.4f} | tuned f1={mt['f1']:.4f} mcc={mt['mcc']:.4f} | "
+        f"replicon mcc={ensemble['replicon_level']['mcc']:.4f}")
+    return {"aux_dim": aux_dim, "aux_names": aux_names, "blocks": list(blocks),
+            "per_seed": per_seed, "ensemble": ensemble}, mean
 
 
 def main():
@@ -95,75 +185,59 @@ def main():
 
     sets = {s: data.EmbeddingSet(cache / f"emb_{s}.npz") for s in data.SPLITS}
     tensors = {s: as_tensors(sets[s]) for s in data.SPLITS}
-    train_y = torch.tensor(sets["train"].label, dtype=torch.float32)
     for s, es in sets.items():
+        orf_free = int((es.n_orfs_real == 0).sum()) if es.n_orfs_real is not None else -1
         log(f"{s}: {len(es)} fragments, {int(es.label.sum())} plasmid, "
-            f"{es.n_orfs.mean():.2f} ORFs/fragment, "
+            f"{es.n_orfs.mean():.2f} ORFs/fragment, {orf_free} ORF-free, "
             f"effective size {es.weight.sum():,.0f}")
 
-    per_seed, final_probs, best_probs = {}, {"validation": [], "test": []}, \
-        {"validation": [], "test": []}
-    for i in range(cfg["train"]["n_seeds"]):
-        seed = cfg["random_seed"] + 100 * i
-        log(f"\n=== model {i + 1}/{cfg['train']['n_seeds']} (seed {seed}) ===")
-        t0 = time.time()
-        net, best_state, best_epoch, history = train_one(
-            cfg, tensors["train"], train_y, tensors["validation"], sets["validation"],
-            seed, log)
-        train_seconds = time.time() - t0
-
-        probs = {s: predict(net, tensors[s]) for s in ("validation", "test")}
-        final_net_state = copy.deepcopy(net.state_dict())
-        net.load_state_dict(best_state)
-        best = {s: predict(net, tensors[s]) for s in ("validation", "test")}
-        net.load_state_dict(final_net_state)
-
-        for split in ("validation", "test"):
-            final_probs[split].append(probs[split])
-            best_probs[split].append(best[split])
-            np.save(results / "probs" / f"esm2_seed{seed}_final_{split}.npy", probs[split])
-            np.save(results / "probs" / f"esm2_seed{seed}_best_{split}.npy", best[split])
-
-        tuned = metrics.best_f1_threshold(sets["validation"].label, probs["validation"],
-                                          sets["validation"].weight)
-        per_seed[f"seed{seed}"] = {
-            "seed": seed, "best_epoch": best_epoch, "train_seconds": train_seconds,
-            "history": history, "tuned_threshold": tuned,
-            "test_final": evaluate("final", sets["test"].label, probs["test"],
-                                   sets["test"].weight, sets["test"].replicon_id, tuned),
-        }
-        m = per_seed[f"seed{seed}"]["test_final"]["weighted"]
-        log(f"  test (weighted): auprc={m['auprc']:.4f} f1={m['f1']:.4f} "
-            f"recall={m['recall']:.4f} mcc={m['mcc']:.4f}")
-
-    payload = {"method": "ESM-2 (esm2_t6_8M_UR50D) ORF embeddings + attention pooling",
-               "config": {k: cfg[k] for k in ("esm", "orf", "subsample", "train")},
+    payload = {"method": "ESM-2 (esm2_t6_8M_UR50D) ORF embeddings + attention pooling, "
+                         "with optional whole-fragment GC / origin composition features",
+               "dataset_dir": str(cfg["dataset_dir"]),
+               "config": {k: cfg[k] for k in ("esm", "orf", "subsample", "train", "variants")},
                "splits": {s: {"n_sampled": len(sets[s]),
                               "n_plasmid": int(sets[s].label.sum()),
                               "effective_n": float(sets[s].weight.sum()),
                               "orfs_per_fragment": float(sets[s].n_orfs.mean())}
                           for s in data.SPLITS},
-               "per_seed": per_seed}
+               "variants": {}}
 
-    for tag, store in (("final", final_probs), ("best_epoch", best_probs)):
-        mean = {s: np.mean(store[s], axis=0) for s in store}
-        np.save(results / "probs" / f"esm2_ensemble_{tag}_test.npy", mean["test"])
-        np.save(results / "probs" / f"esm2_ensemble_{tag}_validation.npy", mean["validation"])
-        tuned = metrics.best_f1_threshold(sets["validation"].label, mean["validation"],
-                                          sets["validation"].weight)
-        payload[f"ensemble_{tag}"] = {
-            "tuned_threshold": tuned,
-            **evaluate(tag, sets["test"].label, mean["test"], sets["test"].weight,
-                       sets["test"].replicon_id, tuned),
-        }
-        m = payload[f"ensemble_{tag}"]["weighted"]
-        log(f"ENSEMBLE ({tag}) test weighted: acc={m['accuracy']:.4f} f1={m['f1']:.4f} "
-            f"recall={m['recall']:.4f} precision={m['precision']:.4f} "
-            f"auprc={m['auprc']:.4f} mcc={m['mcc']:.4f}")
+    rows = []
+    for name, blocks in cfg["variants"].items():
+        entry, mean = run_variant(cfg, sets, tensors, name, blocks, log)
+        payload["variants"][name] = entry
+        np.save(results / "probs" / f"{name.replace('+', '_')}_ensemble_test.npy", mean["test"])
+        e = entry["ensemble"]
+        rows.append({"variant": name, "aux_dim": entry["aux_dim"],
+                     "mcc": round(e["weighted"]["mcc"], 4),
+                     "f1": round(e["weighted"]["f1"], 4),
+                     "auprc": round(e["weighted"]["auprc"], 4),
+                     "mcc_tuned": round(e["weighted_tuned"]["mcc"], 4),
+                     "f1_tuned": round(e["weighted_tuned"]["f1"], 4),
+                     "replicon_mcc": round(e["replicon_level"]["mcc"], 4)})
 
-    (results / "esm2_attention.json").write_text(json.dumps(payload, indent=2),
-                                                 encoding="utf-8")
-    log(f"wrote {results / 'esm2_attention.json'}")
+    (results / "esm2_variants.json").write_text(json.dumps(payload, indent=2),
+                                                encoding="utf-8")
+    summary = pd.DataFrame(rows)
+    summary.to_csv(results / "esm2_variants.csv", index=False)
+    log(f"\nwrote {results / 'esm2_variants.json'}")
+    print("\n" + summary.to_string(index=False))
+
+    # length-stratified table across variants, the answer to "5 kb is arbitrary"
+    long_rows = []
+    for name, entry in payload["variants"].items():
+        for r in entry["ensemble"].get("by_length", []):
+            long_rows.append({"variant": name, "length_bucket": r["length_bucket"],
+                              "n_sampled": r.get("n_sampled"),
+                              "mcc": round(r.get("mcc", float("nan")), 4),
+                              "f1": round(r.get("f1", float("nan")), 4),
+                              "auprc": round(r.get("auprc", float("nan")), 4)})
+    if long_rows:
+        by_len = pd.DataFrame(long_rows)
+        by_len.to_csv(results / "esm2_by_length.csv", index=False)
+        print("\nby length bucket (tuned threshold)")
+        print(by_len.pivot(index="length_bucket", columns="variant",
+                           values="mcc").to_string())
 
 
 if __name__ == "__main__":

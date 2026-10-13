@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pipeline.utils import load_config, path_for, read_fasta
+from pipeline.utils import load_config, min_fragment_length, path_for, report_tag, read_fasta
 
 SPLITS = ("train", "validation", "test")
 failures: list[str] = []
@@ -31,13 +31,16 @@ def main() -> int:
     cfg = load_config()
     random.seed(int(cfg["random_seed"]))
     meta = path_for(cfg, "metadata_dir")
-    dataset = path_for(cfg, "dataset_dir")
-    frag_len = int(cfg["fragments"]["length"])
+    fcfg = cfg["fragments"]
+    mixed = fcfg.get("mode") == "random_length"
+    tag = report_tag(cfg)
+    dataset = path_for(cfg, fcfg.get("output_dir_key", "dataset_dir"))
+    frag_len = min_fragment_length(cfg)
 
     frames = {s: pd.read_csv(dataset / f"{s}.csv") for s in SPLITS}
     allf = pd.concat(frames.values(), ignore_index=True)
     replicons = pd.read_csv(meta / "replicons.csv")
-    clusters = pd.read_csv(meta / "clusters.csv", keep_default_na=False)
+    clusters = pd.read_csv(meta / f"clusters{tag}.csv", keep_default_na=False)
 
     print(f"Fragments: {len(allf):,} across {len(SPLITS)} splits")
 
@@ -86,16 +89,26 @@ def main() -> int:
           "no 'unknown' replicon leaked into the binary dataset",
           "'unknown' replicons are present in the dataset")
 
-    # 5. every fragment is exactly frag_len and its coordinates are consistent
-    check(set(allf["length"].unique()) == {frag_len},
-          f"every fragment is exactly {frag_len} bp",
-          f"fragment lengths vary: {sorted(set(allf['length'].unique()))[:5]}")
-    check(bool(((allf["end"] - allf["start"]) == frag_len).all()),
-          "end - start == fragment length for every fragment",
+    # 5. fragment lengths are in range and coordinates are consistent
+    if mixed:
+        lo, hi = frag_len, int(fcfg["length_sampling"]["max"])
+        check(bool((allf["length"] >= lo).all()),
+              f"every fragment is at least {lo} bp",
+              f"fragments below {lo} bp: {int((allf['length'] < lo).sum())}")
+        # a tail absorbed into its window may exceed the sampling maximum
+        check(bool((allf["length"] <= 2 * hi).all()),
+              f"no fragment exceeds twice the sampling maximum ({2 * hi} bp)",
+              f"fragment longer than {2 * hi} bp: {int(allf['length'].max())}")
+    else:
+        check(set(allf["length"].unique()) == {frag_len},
+              f"every fragment is exactly {frag_len} bp",
+              f"fragment lengths vary: {sorted(set(allf['length'].unique()))[:5]}")
+    check(bool(((allf["end"] - allf["start"]) == allf["length"]).all()),
+          "end - start == length for every fragment",
           "some fragments have inconsistent start/end coordinates")
 
     # 6. fragments do not overlap within a replicon (non_overlapping strategy)
-    if cfg["fragments"]["strategy"] == "non_overlapping":
+    if mixed or cfg["fragments"]["strategy"] == "non_overlapping":
         sample = random.sample(sorted(set(allf["replicon_id"])), min(50, allf["replicon_id"].nunique()))
         overlaps = 0
         for rid in sample:

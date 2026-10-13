@@ -39,6 +39,27 @@ def path_for(cfg: dict, key: str) -> Path:
     return p
 
 
+# --------------------------------------------------------------------------- fragments
+def min_fragment_length(cfg: dict) -> int:
+    """Shortest fragment the fragmenting step can emit.
+
+    Steps 5 and 6 use this to decide which replicons are worth clustering and
+    splitting. Under ``fragments.mode: fixed`` it is the single fragment length,
+    so a replicon shorter than that is unusable. Under ``random_length`` it is
+    the sampling minimum, which is what lets replicons below the old 5-kb floor
+    (39 plasmids, down to 1119 bp) enter the dataset at all.
+    """
+    fcfg = cfg["fragments"]
+    if fcfg.get("mode") == "random_length":
+        return int((fcfg.get("length_sampling") or {}).get("min", 1000))
+    return int(fcfg["length"])
+
+
+def report_tag(cfg: dict) -> str:
+    """Filename suffix keeping one fragmenting run's metadata beside another's."""
+    return str(cfg["fragments"].get("report_tag", ""))
+
+
 # --------------------------------------------------------------------------- logging
 def get_logger(cfg: dict, name: str) -> logging.Logger:
     log_dir = path_for(cfg, "logs_dir")

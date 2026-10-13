@@ -23,6 +23,9 @@ paths:
   fasta_dir: "data/fasta"
   split_dir: "data/split"
   dataset_dir: "data/dataset"
+  # Mixed-length dataset (fragments.mode == random_length). Kept separate so the
+  # published fixed-5-kb dataset in dataset_dir stays reproducible.
+  dataset_mixed_dir: "data/dataset_mixed"
   reports_dir: "reports"
   logs_dir: "logs"
 
@@ -115,7 +118,22 @@ split:
 
 # ---------------------------------------------------------------- fragments
 fragments:
-  length: 5000
+  # fixed         => non-overlapping windows of `length` bp (the published 5-kb dataset)
+  # random_length => every window's length is drawn from `length_sampling`
+  #
+  # random_length answers the expert's first comment: 5 kb is a round number with
+  # no biological meaning, and a 5-kb floor emitted nothing at all for the 10.2%
+  # of plasmids shorter than 5 kb, silently deleting small ColE1/rolling-circle
+  # plasmids from the problem. Drawing the length instead privileges no single
+  # scale, and performance is reported per length bucket at evaluation time.
+  mode: "random_length"
+  output_dir_key: "dataset_mixed_dir"
+  report_tag: "_mixed"           # suffix for fragments.csv / reports of this run
+  length_sampling:
+    dist: "log_uniform"          # log_uniform | uniform
+    min: 1000                    # below the 1119 bp smallest plasmid nothing is lost
+    max: 100000
+  length: 5000                   # used only when mode == fixed
   strategy: "non_overlapping"    # documented strategy; step == length
   step: 5000
   drop_last_partial: true        # trailing < length bp remainder is discarded

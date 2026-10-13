@@ -1,8 +1,14 @@
 """Step 1: subsample each split, call ORFs, and embed every ORF with ESM-2.
 
 Writes cache/subsample_{split}.csv (the exact fragments used, with their weights)
-and cache/emb_{split}.npz (ragged per-fragment ORF embeddings).
-This is the expensive step: about 0.44 s per fragment on a 4-core CPU.
+and cache/emb_{split}.npz (ragged per-fragment ORF embeddings plus the
+whole-fragment auxiliary features).
+
+This is the expensive step: about 0.44 s per 5-kb fragment on a 4-core CPU, and
+more on the mixed-length dataset because the ten longest ORFs of a long fragment
+are themselves longer. It runs ONCE: every variant of the classifier
+(esm2, +gc, +ori, +gc+ori) reuses these embeddings and simply selects which
+auxiliary columns it consumes, so changing the feature set costs no ESM time.
 """
 
 from __future__ import annotations
@@ -16,7 +22,7 @@ import torch
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from esm2 import data, embed, orfs  # noqa: E402
+from esm2 import composition, data, embed, orfs  # noqa: E402
 
 
 def build_split(cfg, split, tokenizer, model, log):
@@ -41,13 +47,20 @@ def build_split(cfg, split, tokenizer, model, log):
     log(f"{split}: read FASTA subset in {time.time() - t0:.1f}s")
 
     t0 = time.time()
-    peptides, counts = [], []
+    peptides, counts, aux_rows = [], [], []
     for frag_id in picked["fragment_id"]:
-        found = orfs.extract_orfs(seqs[frag_id], cfg["orf"]["min_length"],
-                                  cfg["orf"]["max_orfs"])
+        seq = seqs[frag_id]
+        found = orfs.extract_orfs(seq, cfg["orf"]["min_length"], cfg["orf"]["max_orfs"])
         peptides.extend(found)
         counts.append(len(found))
+        # Whole-fragment features: the only path by which non-coding sequence
+        # (origin of replication included) reaches the classifier.
+        aux_rows.append(composition.fragment_features(seq, composition.ALL_BLOCKS))
     counts = np.array(counts, dtype=np.int64)
+    aux = np.vstack(aux_rows).astype(np.float32)
+    aux_names = composition.all_feature_names()
+    log(f"{split}: auxiliary features {aux.shape} "
+        f"({len(aux_names)} cols: {', '.join(aux_names)})")
     bounds = np.concatenate([[0], np.cumsum(counts)])
     empty = int((counts == 0).sum())
     lengths = np.array([len(p) for p in peptides])
@@ -79,7 +92,8 @@ def build_split(cfg, split, tokenizer, model, log):
     # The prototype represents an ORF-free sequence with a single zero vector.
     grouped = [matrix[bounds[i]:bounds[i + 1]] if counts[i] else zeros
                for i in range(len(picked))]
-    data.save_embeddings(out, picked, grouped)
+    data.save_embeddings(out, picked, grouped, aux=aux, aux_names=aux_names,
+                         n_orfs_real=counts)
     log(f"{split}: wrote {out.name} ({out.stat().st_size / 2**20:.1f} MiB)")
 
 

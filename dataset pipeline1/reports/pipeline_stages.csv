@@ -27,3 +27,11 @@ timestamp,step,stage,n_in,n_out,n_lost,note
 2026-09-15T19:12:57+00:00,step06_split,replicons assigned to a split,869,869,0,
 2026-09-15T19:14:49+00:00,step07_fragments,parent replicons fragmented,869,869,0,0 produced no fragment (< 5000 bp)
 2026-09-15T19:14:49+00:00,step07_fragments,candidate fragments kept,482161,482161,0,0 dropped: non-ACGT fraction > 0.05
+2026-10-13T19:23:29+00:00,step07_fragments,parent replicons fragmented,869,869,0,0 produced no fragment (< 1000 bp)
+2026-10-13T19:23:29+00:00,step07_fragments,candidate fragments kept,112886,112886,0,0 dropped: non-ACGT fraction > 0.05
+2026-10-13T19:26:39+00:00,step05_cluster,replicons eligible for clustering,908,908,0,length >= shortest emittable fragment (1000 bp)
+2026-10-13T19:26:39+00:00,step05_cluster,replicons -> clusters (splitting units),908,882,26,single-linkage at ANI>=0.95
+2026-10-13T19:26:41+00:00,step06_split,replicons available for splitting,909,908,1,unknown / sub-fragment-length replicons excluded
+2026-10-13T19:26:41+00:00,step06_split,replicons assigned to a split,908,908,0,
+2026-10-13T19:27:54+00:00,step07_fragments,parent replicons fragmented,908,908,0,0 produced no fragment (< 1000 bp)
+2026-10-13T19:27:54+00:00,step07_fragments,candidate fragments kept,112929,112929,0,0 dropped: non-ACGT fraction > 0.05

@@ -47,7 +47,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .utils import StageLog, get_logger, load_config, path_for, read_fasta, update_manifest
+from .utils import (StageLog, get_logger, load_config, min_fragment_length, path_for,
+                    read_fasta, report_tag, update_manifest)
 
 MASK64 = (1 << 64) - 1
 COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
@@ -247,9 +248,10 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
     # Only replicons that can actually enter the binary dataset are clustered.
     usable = rep[rep["replicon_type"].isin(["chromosome", "plasmid"])].reset_index(drop=True)
     n_before = len(usable)
-    usable = usable[usable["length"] >= int(cfg["fragments"]["length"])].reset_index(drop=True)
+    min_len = min_fragment_length(cfg)
+    usable = usable[usable["length"] >= min_len].reset_index(drop=True)
     slog.record("replicons eligible for clustering", n_before, len(usable),
-                f"length >= fragment length ({cfg['fragments']['length']} bp)")
+                f"length >= shortest emittable fragment ({min_len} bp)")
     logger.info("Clustering %d eligible replicons (of %d chromosome/plasmid records)",
                 len(usable), n_before)
 
@@ -371,7 +373,7 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
 
     pairs_df = pd.DataFrame(pairs)
     reports = path_for(cfg, "reports_dir")
-    pairs_path = reports / "similarity_pairs.csv"
+    pairs_path = reports / f"similarity_pairs{report_tag(cfg)}.csv"
     pairs_df.to_csv(pairs_path, index=False)
 
     # ------------------------------------------------------------- clusters
@@ -389,7 +391,7 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
                 "sequence_sha256", "cluster_id", "source_fasta"]
     clustered = pd.concat([usable[out_cols], excluded[out_cols]], ignore_index=True)
     clustered = clustered.sort_values(["cluster_id", "replicon_id"]).reset_index(drop=True)
-    clusters_path = meta_dir / "clusters.csv"
+    clusters_path = meta_dir / f"clusters{report_tag(cfg)}.csv"
     clustered.to_csv(clusters_path, index=False)
 
     sizes = usable.groupby("cluster_id").size()
@@ -458,7 +460,7 @@ def run(cfg: dict | None = None) -> pd.DataFrame:
         "    claim the splits are free of all homology.",
         "=" * 78,
     ]
-    summary_path = reports / "similarity_clusters.txt"
+    summary_path = reports / f"similarity_clusters{report_tag(cfg)}.txt"
     summary_path.write_text("\n".join(summary) + "\n", encoding="utf-8")
     print("\n".join(summary))
 
