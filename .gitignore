@@ -49,8 +49,11 @@ esm2-attention/results_server/probs/
 esm2-attention/results_server/checkpoints/
 esm2-attention/results_regression/
 esm2-attention/config_regression.yaml
-# Job logs and the checksum manifest are machine-specific.
-server/logs/
+# Job logs and the checksum manifest are machine-specific. The directory itself
+# must survive a fresh clone, because Slurm cannot create the parent of
+# --output and the job would die before running.
+server/logs/*
+!server/logs/.gitkeep
 server/dataset_md5.txt
 
 # --- reference PDFs kept locally, deliberately not in the repo ---

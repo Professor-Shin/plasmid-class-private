@@ -1,0 +1,3 @@
+Slurm writes job logs here. The directory has to exist in a fresh clone:
+--output=server/logs/... cannot create its own parent, so a missing directory
+kills the job before the script runs.
