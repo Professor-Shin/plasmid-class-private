@@ -1,0 +1,22 @@
+# This repository is edited on Windows (core.autocrlf=true) and run on a Linux
+# cluster, so line endings have to be pinned rather than left to the local git
+# configuration. A shell script checked out with CRLF fails on Linux with
+# "$'\r': command not found", which is a confusing way to lose a Slurm job.
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.csv  text eol=lf
+*.json text eol=lf
+
+# Data and documents: never transform.
+*.fasta  -text
+*.fna    -text
+*.gz     binary
+*.npy    binary
+*.npz    binary
+*.pt     binary
+*.pdf    binary
+*.png    binary

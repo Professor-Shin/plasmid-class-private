@@ -1,0 +1,111 @@
+# The CU-AIM run: the same model as config.yaml with every compute compromise
+# removed. config.yaml is left untouched because it is the configuration the
+# numbers currently in the report were produced with.
+#
+# What changes, and which bottleneck each item removes (REPORT-SUMMARY.md lists
+# all three as the top of its tuning roadmap):
+#
+#   orf.max_orfs: null       the laptop kept only the 10 longest ORFs and 80.5%
+#                            of test fragments hit that cap
+#   subsample: null          the laptop embedded ~2,000 of 79,094 train fragments
+#   train.class_balance      training on the full split means 2.8% plasmid as in
+#                            evaluation, instead of the 45% the balanced
+#                            subsample forced
+#   train.batch_size: 64     one fragment per optimisation step cannot cover
+#                            79,094 fragments
+#
+# Run with:
+#   python extract_features.py --config config_server.yaml --split train --shard i --n-shards 12
+#   python merge_shards.py     --config config_server.yaml
+#   python train_eval.py       --config config_server.yaml
+
+upstream:
+  directory: "../old resource"
+  files: ["09_train_esm2.py", "10_esm_attention.py"]
+  previous_result: "esm_attn_res.txt"
+
+dataset_dir: "../dataset pipeline1/data/dataset_mixed"
+# config.yaml points this at ../baseline/results, the 5-kb run, while writing its
+# own output to results_mixed - which is the inconsistency that left summarize.py
+# reading a schema nothing produces any more.
+baseline_dir: "../baseline/results_mixed"
+cache_dir: "cache_server"
+results_dir: "results_server"
+
+fragment_length: null
+random_seed: 42
+
+variants:
+  esm2: []
+  esm2+gc: ["gc"]
+  esm2+ori: ["ori"]
+  esm2+gc+ori: ["gc", "ori"]
+
+esm:
+  model_name: "facebook/esm2_t6_8M_UR50D"
+  # hidden_size is read from the checkpoint; keeping it here only as an assertion
+  # that the config and the weights agree.
+  hidden_size: 320
+  max_length: 1024
+  device: "auto"            # cuda inside the GPU allocation, cpu on a login node
+  amp: true                 # bfloat16 autocast for the transformer; the mean pool
+                            # stays float32 (see esm2/embed.py)
+  # 7g.40gb is a whole A100-40GB, so the token budget can be ~8x the laptop's.
+  batch_tokens: 65536
+  torch_threads: 4          # the tokenizer and the pooling, not the workers
+  # MEASURED on the real dataset (not estimated): uncapped ORF calling yields
+  # 8.79 M ORFs over the 112,929 fragments - 2.13 G amino acids to embed - but
+  # the six-frame translation itself costs only ~1.3 CPU-hours in total, because
+  # Biopython's translate is C-backed. So the transformer, not the ORF calling,
+  # is the bottleneck; the workers exist to keep the GPU fed, not to catch up.
+  orf_workers: 14           # of the 16 CPUs gpu40g grants
+  store_float16: true       # 8.79 M ORFs x 320 dims is 10.5 GiB in float32 and
+                            # 5.2 GiB in float16. The embeddings are produced
+                            # under bfloat16 autocast anyway, and
+                            # verify_components.py measures what this costs
+  # Shards bound peak memory per step AND make the pass resumable: a shard already
+  # on disk is skipped, so a job that hits the time limit is simply resubmitted.
+  # Sized at roughly 6-8k fragments each.
+  shards:
+    train: 12
+    validation: 3
+    test: 3
+
+orf:
+  min_length: 100           # unchanged, so the ORF definition stays comparable
+  max_orfs: null            # THE change: keep every ORF, not the 10 longest
+  # Padding guard only, and a measurement says it never actually binds: the most
+  # ORFs seen on any sampled fragment is 466 (in the 50-100 kb bucket, mean 272).
+  # Per-bucket means: 1-2kb 6, 2-5kb 12, 5-10kb 28, 10-25kb 65, 25-50kb 112.
+  max_orfs_hard_cap: 512
+
+# null means "use the whole split". Weights become 1.0, and the weighted metrics
+# in esm2/metrics.py reduce to ordinary ones with no change there.
+subsample: null
+
+train:
+  epochs: 60
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  dropout: 0.3
+  classifier_hidden: 64
+  batch_size: 64
+  n_seeds: 5
+  torch_threads: 4
+  device: "auto"
+  # Early stopping on the weighted validation AUPRC. The laptop ran a fixed 15
+  # epochs and reported the best epoch after the fact; with 60 epochs available
+  # the run should stop when it stops improving.
+  patience: 8
+  # Regimes, mirroring baseline/run_plasflow.py and run_zou.py:
+  #   full       train on the natural 2.8% plasmid rate and let the loss carry the
+  #              imbalance through pos_weight = n_neg/n_pos. Headline.
+  #   balanced   1:1 resampling, the laptop's implicit condition, kept for a
+  #              like-for-like comparison with the published numbers.
+  regimes: ["full", "balanced"]
+  class_balance:
+    full: "pos_weight"
+    balanced: "resample"
+  # Checkpoints are written to results_dir/checkpoints. Nothing in the laptop code
+  # called torch.save at all, so every trained head was discarded on exit.
+  save_checkpoints: true

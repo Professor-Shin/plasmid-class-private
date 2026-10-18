@@ -1,0 +1,52 @@
+# Platon and MOB-suite as published baselines on the mixed-length test split.
+#
+# Neither tool is retrained: both are database- and rule-based and are run exactly
+# as released. What this config controls is the harness around them.
+
+upstream:
+  platon:
+    url: "https://github.com/oschwengers/platon"
+    docs: "https://gensoft.pasteur.fr/docs/platon/1.7/"
+    paper: "Schwengers et al. 2020, Microb Genom, doi:10.1099/mgen.0.000398"
+    install: "conda install -c conda-forge -c bioconda platon"
+    database: "https://zenodo.org/record/4066768/files/db.tar.gz"
+  mobsuite:
+    url: "https://github.com/phac-nml/mob-suite"
+    paper: "Robertson & Nash 2018, Microb Genom, doi:10.1099/mgen.0.000206"
+    install: "conda install -c conda-forge -c bioconda mob_suite"
+    database: "mob_init (figshare), mirror https://zenodo.org/records/10304948"
+
+dataset_dir: "../dataset pipeline1/data/dataset_mixed"
+# Results land next to the retrained baselines so analysis/dump_tables.py and
+# baseline/summarize.py find them without a second results root.
+results_dir: "../baseline/results_mixed"
+shard_dir: "shards"
+out_dir: "out"
+
+# Only the test split is run: both tools are untrained, so train/validation would
+# buy nothing but CPU hours. shard_by_assembly.py takes --split if that changes.
+split: "test"
+
+# One shard per assembly. The test split's fragments tile each replicon without
+# overlap and never cross a split boundary, so an assembly's fragments ARE a
+# fragmented draft assembly - exactly the input both tools were designed for,
+# rather than a pile of unrelated sequences.
+shard_by: "assembly_accession"
+
+platon:
+  # A single --characterize run reports RDS and every hallmark column for every
+  # contig, from which all three published filter modes are re-derived offline
+  # (see toolbase/rules.py). Without the flag the TSV holds only plasmid calls.
+  characterize: true
+  modes: ["sensitivity", "accuracy", "specificity"]
+
+mobsuite:
+  # mob_recon discards contigs below this length, so anything dropped has to be
+  # re-joined as "unclassified" rather than silently disappearing. The dataset's
+  # shortest fragment is 1,000 bp, which sits exactly on this boundary.
+  min_length: 1000
+
+# Both tools can decline to classify a fragment, so three policies are reported
+# rather than one, the same way baseline/baselines/metrics.plasflow_threshold_rule
+# already handles PlasFlow's "unclassified" band.
+unclassified_policies: ["chromosome", "plasmid", "exclude"]

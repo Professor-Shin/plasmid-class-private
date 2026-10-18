@@ -1,0 +1,15 @@
+# Pinned to the versions recorded in baseline/results/environment.json so the
+# server reproduces the laptop's numbers exactly. torch is NOT listed here: it is
+# installed separately from a CUDA wheel index by 00_setup_envs.sh, because the
+# laptop build is torch==2.11.0+cpu and the server needs the CUDA build.
+transformers==5.7.0
+tokenizers==0.22.2
+safetensors==0.7.0
+numpy==2.4.4
+pandas==3.0.2
+scikit-learn==1.8.0
+scipy==1.17.1
+PyYAML==6.0.3
+biopython==1.87
+joblib==1.5.3
+threadpoolctl==3.6.0

@@ -8,14 +8,18 @@ gc_signal.py have produced their outputs; missing files are skipped.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 REPORTS = ROOT / "dataset pipeline1" / "reports"
-BASE = ROOT / "baseline" / "results_mixed"
-ESM = ROOT / "esm2-attention" / "results_mixed"
+# The directory names are overridable so the same script can render the laptop's
+# results (the defaults) or the server run's, which writes to results_server:
+#   ESM_RESULTS=results_server python analysis/dump_tables.py
+BASE = ROOT / "baseline" / os.environ.get("BASE_RESULTS", "results_mixed")
+ESM = ROOT / "esm2-attention" / os.environ.get("ESM_RESULTS", "results_mixed")
 ANA = ROOT / "analysis" / "results"
 
 pd.set_option("display.width", 200)
@@ -109,6 +113,37 @@ if __name__ == "__main__":
             print(to_md(df.pivot(index="length_bucket", columns="model",
                                 values="mcc").rename_axis("length_bucket"), index=True))
 
+    section("Published tools as baselines: Platon and MOB-recon (test)")
+    if p := maybe(BASE / "tool_baselines.csv"):
+        df = pd.read_csv(p)
+        print(md(df, ["model", "policy", "coverage", "n_scored", "mcc", "f1",
+                      "precision", "recall", "specificity", "auprc",
+                      "replicon_mcc", "hard_label_score"]))
+        print("\n`policy` is how fragments the tool declined to classify are "
+              "counted. `hard_label_score` marks rows whose AUROC/AUPRC come from "
+              "a decision rather than a probability, so they are label-dominated. "
+              "Both tools expect assembled contigs; these fragments are linear "
+              "sub-sequences with no circularity and usually no oriT or rep "
+              "hallmark, which is why the replicon-level column is the fairer "
+              "comparison.")
+
+    section("Platon and MOB-recon by length bucket (MCC, headline policy)")
+    if p := maybe(BASE / "tool_baselines.json"):
+        js = json.loads(p.read_text())
+        rows = []
+        for key, e in js["models"].items():
+            if not key.endswith("|chromosome") or "test_by_length" not in e:
+                continue
+            for r in e["test_by_length"]:
+                rows.append({"model": e["model"], "length_bucket": r["length_bucket"],
+                             "n": r.get("n"), "mcc": r.get("mcc")})
+        if rows:
+            df = pd.DataFrame(rows)
+            print(to_md(df.pivot(index="length_bucket", columns="model",
+                                values="mcc").rename_axis("length_bucket"), index=True))
+        else:
+            print("_(no by-length breakdown in tool_baselines.json)_")
+
     section("ESM-2 feature ladder (test, weighted)")
     if p := maybe(ESM / "esm2_variants.csv"):
         print(md(pd.read_csv(p)))
@@ -116,6 +151,14 @@ if __name__ == "__main__":
     section("ESM-2 ladder by length bucket (MCC)")
     if p := maybe(ESM / "esm2_by_length.csv"):
         df = pd.read_csv(p)
+        # The server run trains the ladder under more than one class-balance
+        # regime, so the table carries a regime column and the pivot has to pick
+        # one. The headline regime is the first one train_eval.py ran.
+        if "regime" in df.columns and df["regime"].nunique() > 1:
+            headline = df["regime"].iloc[0]
+            print(f"_(regime: {headline}; the full table also holds "
+                  f"{', '.join(r for r in df['regime'].unique() if r != headline)})_\n")
+            df = df[df["regime"] == headline]
         print(to_md(df.pivot(index="length_bucket", columns="variant",
                             values="mcc").rename_axis("length_bucket"), index=True))
 
