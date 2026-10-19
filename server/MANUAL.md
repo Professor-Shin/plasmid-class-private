@@ -122,7 +122,7 @@ du -sh "$PROJECT"                               # ~250 MB (โค้ด + CSV �
 nano server/env.sh      # หรือเปิดใน VS Code
 ```
 
-แก้แค่ 6 บรรทัดบนสุดในหัวข้อ identity/Slurm:
+แก้ 7 ค่าในหัวข้อ identity/Slurm/modules (ตรงกับ 7 แถวในตารางขั้น 1):
 
 ```bash
 : "${PROJECT:=/data/project/naruemon/siwak_s_plasmid}"     # <-- ของคุณ
@@ -131,7 +131,11 @@ nano server/env.sh      # หรือเปิดใน VS Code
 : "${PART_GPU:=gpu}"
 : "${GRES_GPU:=gpu:7g.40gb:1}"
 : "${MODULE_CONDA:=Anaconda3}"
+: "${MODULE_CUDA:=CUDA/11.8.0}"
 ```
+
+> `QOS_CPU` (`cpu40h`) และ `QOS_GPU` (`gpu40g`) มีค่าตั้งต้นให้แล้ว — แก้เฉพาะเมื่อ
+> `check_qos` ในขั้น 1 บอกว่าบัญชีได้ชื่อ QoS อื่น
 
 > ส่วนที่เหลือของ `env.sh` **อย่าลบ** โดยเฉพาะบล็อก `CONDA_ENVS_DIRS` / `HF_HOME` / `TMPDIR`
 > ที่ย้าย cache ออกจาก `/data/home` ซึ่งโควต้าเล็กมาก — ถ้าไม่มีบรรทัดนั้น `conda create`
@@ -147,7 +151,7 @@ bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 ใช้เวลา ~30-60 นาที ส่วนใหญ่รอโหลด Platon DB (1.6 GB) กับ MOB-suite DB สคริปต์ทำ 6 ขั้น:
 
 ```
-1/6  conda env: plasmid-ml   (python 3.13 + torch CUDA + pin ตรงกับที่ใช้ตีพิมพ์)
+1/6  conda env: plasmid-ml   (python 3.11 + torch CUDA ที่ glibc รองรับ + pin อื่นตามที่ตีพิมพ์)
 2/6  conda env: platon       (ลาก prodigal, diamond, hmmer, blast, mummer มาด้วย)
 3/6  conda env: mobsuite     (ลาก blast+, mash)
 4/6  Platon DB               ~2.8 GB หลังแตกไฟล์
@@ -155,14 +159,26 @@ bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 6/6  ESM-2 weights           โหลดไว้ล่วงหน้าเผื่อ compute node ไม่มีเน็ต
 ```
 
-**ถ้าหยุดกลางทาง รันซ้ำได้เลย** ทุกขั้นข้ามถ้ามีของอยู่แล้ว การดาวน์โหลดก็ resume (`curl -C -`)
+> **เรื่อง glibc กับ torch (สำคัญ — เคยติดมาแล้ว):** CU-AIM ใช้ glibc 2.17 ซึ่งเป็น
+> เหตุผลเดียวกับที่ VS Code ต้องเป็น ≤ 1.85.2 (ขั้น 0.4) — torch ≥ 2.6 และ VS Code ≥ 1.86
+> ต่างก็ต้องการ glibc ≥ 2.28 ถ้า `pip install torch` ดึงรุ่นล่าสุด (เช่น 2.11) มันจะลงได้
+> แต่ **โหลดไม่ขึ้น** `00_setup_envs.sh` จึงอ่าน glibc จาก `ldd --version` แล้ว**cap torch
+> ที่ 2.5.1** (รุ่นสุดท้ายที่ build สำหรับ glibc 2.17) โดยอัตโนมัติ และเลือก cuXXX ตาม driver
+> จาก `nvidia-smi` — เวอร์ชันที่เลือกจริงถูกบันทึกไว้ที่ `$PROJECT/.cuda_tag`
+>
+> ถ้า `pip` บ่นว่า pin ตัวใดต้องการ torch ≥ 2.6 (เช่น transformers รุ่นใหม่) ให้ผ่อน pin
+> ตัวนั้นใน `server/requirements-plasmid-ml.txt` — โค้ดโปรเจกต์ไม่ได้ใช้ API ที่เปลี่ยน
+
+**ถ้าหยุดกลางทาง รันซ้ำได้เลย** ทุกขั้นข้ามถ้า**ติดตั้งสำเร็จและผ่านการตรวจแล้ว** (เขียน
+`.setup_ok` ไว้) — env ที่ solve ค้างหรือ torch ลงไม่สำเร็จจะถูกสร้างใหม่ ไม่ใช่ข้ามไปเฉย ๆ
+การดาวน์โหลด DB ก็ resume (`curl -C -`)
 
 ### สิ่งที่เห็นแล้วไม่ต้องตกใจ
 
 | ข้อความ | แปลว่า |
 |---|---|
 | `torch.cuda.is_available() -> False` | **ปกติ** login node ไม่มี GPU การตรวจจริงอยู่ในขั้น 5 |
-| `nvidia-smi not on the login node (expected)` | ปกติ สคริปต์เลือก torch wheel `cu126` เป็นค่าตั้งต้น |
+| `nvidia-smi not on the login node (expected)` | ปกติ — บน login node ไม่มี GPU สคริปต์ใช้ cuXXX ที่ดีสุดเท่าที่ glibc ยอมเป็น fallback แล้วไปยืนยัน driver จริงในขั้น GPU; เช็ก `.cuda_tag` ว่าได้อะไร |
 | `lm_head.* UNEXPECTED` ตอนโหลด ESM-2 | ปกติ เราใช้แค่ encoder ไม่ใช้ language-model head |
 | `NOTE: the Platon documentation states...` | เตือนให้เช็คว่า Platon กับ DB เป็นรุ่นที่เข้ากัน (ดู [ภาคผนวก D](#ภาคผนวก-d--db-ของ-platon-ไม่ตรงรุ่น)) |
 
@@ -321,9 +337,12 @@ PASS: the re-derived 'accuracy' rule reproduces Platon's own classification exac
     PASS: the refactored code reproduces the published numbers ...
 ```
 
-> ข้อ regression จะข้ามถ้าไม่ได้ส่ง `esm2-attention/cache_mixed/` ขึ้นมา (ขั้น 3 ไม่ส่ง
-> เพราะ 42 MB แต่ไม่จำเป็น) — ผมรันตรวจนี้บนโน้ตบุ๊กแล้วได้ **diff 0.0000 ทั้ง 4 variant**
-> ถ้าอยากให้เซิร์ฟเวอร์ตรวจเองด้วยให้ `rsync` โฟลเดอร์นั้นขึ้นมาแล้ว submit `22_esm_train` ใหม่
+> ขั้น 3 ส่ง `esm2-attention/cache_mixed/` (~42 MB) ขึ้นมาด้วยแล้ว regression check จึง
+> **รันเป็นค่าตั้งต้น** — จำเป็นมากขึ้นบนเซิร์ฟเวอร์เพราะ torch คนละเวอร์ชัน (2.5.1 บน
+> เซิร์ฟเวอร์ vs 2.11 บนโน้ตบุ๊ก) และ GPU คนละรุ่น บนโน้ตบุ๊กผมได้ **diff 0.0000** เพราะ
+> torch เดียวกัน แต่**บนเซิร์ฟเวอร์อย่าคาดหวัง 0.0000** — floating point บน GPU/torch
+> ต่างรุ่นไม่ deterministic การตรวจใช้ tolerance = seed spread ของรอบเดิม (floor 0.02) ซึ่ง
+> ครอบส่วนต่างนี้ได้ ถ้าผ่านแปลว่าพอร์ตมาถูก ข้ามได้ด้วย `SKIP_REGRESSION=1` หลังผ่านแล้ว
 
 ### เวลาที่คาด
 
@@ -573,7 +592,7 @@ PLATON_DB_URL=<url ใหม่> bash server/00_setup_envs.sh
 ครั้งแรก:
 
 - [ ] ต่อ VPN ได้ / `ssh` เข้าได้
-- [ ] `probe_server.sh` ผ่าน จดค่าครบ 6 ตัว
+- [ ] `probe_server.sh` ผ่าน จดค่าครบ 7 ตัว (รวม MODULE_CUDA) + glibc บอก torch รุ่นไหน
 - [ ] พื้นที่ `/data/project` ≥ 24 GB
 - [ ] `check_qos` มี `cpu40h` และ `gpu40g` (หรือแก้ `env.sh` ตามที่มี)
 - [ ] `MaxArraySize` ≥ 116

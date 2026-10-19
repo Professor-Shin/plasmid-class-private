@@ -75,6 +75,12 @@ export TMPDIR="$PROJECT/tmp"
 export SINGULARITY_CACHEDIR="$PROJECT/.singularity-cache"
 export SINGULARITY_TMPDIR="$PROJECT/.singularity-tmp"
 
+# Stop a stray ~/.local (user site-packages, e.g. a pip --user install) from
+# shadowing the conda env's own packages - a classic "it works in my shell but
+# not in the job" trap, and another thing that would otherwise land in the small
+# home quota.
+export PYTHONNOUSERSITE=1
+
 # -------------------------------------------------------------- work layout ---
 export REPO="$PROJECT"
 export DATASET_DIR="$PROJECT/dataset pipeline1/data/dataset_mixed"

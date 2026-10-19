@@ -38,56 +38,94 @@ if command -v mamba >/dev/null; then
   echo "  using mamba for environment solves"
 fi
 
+# An env counts as done only when mark_ok has written its .setup_ok sentinel,
+# which the caller does after proving the env actually works. A half-built env
+# from an interrupted or failed solve has no sentinel, so a rerun rebuilds it
+# instead of skipping over something broken (the bug the reviewer flagged: the old
+# check skipped on "python exists", which a failed torch install leaves behind).
 create_env() {         # create_env <prefix> <description> <packages...>
   local prefix="$1" desc="$2"
   shift 2
-  if [[ -x "$prefix/bin/python" ]]; then
-    echo "  SKIP  $desc already exists at $prefix"
+  if [[ -f "$prefix/.setup_ok" ]]; then
+    echo "  SKIP  $desc already set up and verified ($prefix)"
     return 0
   fi
   echo "  CREATE $desc -> $prefix"
+  rm -rf "$prefix"                 # drop any half-built leftover before rebuilding
   "${SOLVER[@]}" create -y -p "$prefix" -c conda-forge -c bioconda "$@"
 }
 
-banner "1/6  conda environment: plasmid-ml (this project's own code + ESM-2)"
-create_env "$ENV_ML" "plasmid-ml" python=3.13
+mark_ok() { touch "$1/.setup_ok"; }
 
-# torch: pick the CUDA wheel the installed driver can actually run. nvidia-smi
-# reports the newest CUDA the driver supports (manual 4.4.2). A login node usually
-# has no GPU, so fall back to cu126 - the version the manual's own Singularity
-# example installs.
-CUDA_TAG="cu126"
+banner "1/6  conda environment: plasmid-ml (this project's own code + ESM-2)"
+# Python 3.11, not 3.13: it pairs with the glibc-2.17 torch 2.5.1 wheel selected below
+create_env "$ENV_ML" "plasmid-ml" python=3.11
+
+# torch version is capped by the system glibc, not only by the driver. PyTorch
+# 2.6 moved its Linux wheels to manylinux_2_28 (needs glibc >= 2.28); CU-AIM runs
+# glibc 2.17 - the same reason the manual pins VS Code to <= 1.85.2, since 1.86+
+# needs glibc 2.28 too. On glibc 2.17 a pip-installed 2.6+ wheel installs but
+# fails to load, so torch is capped at 2.5.1, the last release built for 2.17.
+GLIBC="$(ldd --version 2>/dev/null | sed -n '1s/.*[^0-9.]\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')"
+TORCH_SPEC="torch"
+CU_OPTIONS="cu126 cu124 cu121 cu118"      # newest first
+if [[ -n "$GLIBC" ]]; then
+  GMAJ="${GLIBC%%.*}"; GMIN="${GLIBC##*.}"
+  echo "  system glibc: $GLIBC"
+  if (( GMAJ < 2 || (GMAJ == 2 && GMIN < 28) )); then
+    TORCH_SPEC="torch==2.5.1"
+    CU_OPTIONS="cu124 cu121 cu118"        # 2.5.1 ships these, not cu126
+    echo "  glibc < 2.28 -> capping torch at 2.5.1 (last glibc-2.17 wheel)"
+  fi
+else
+  echo "  WARN: could not read glibc (ldd missing?); not capping the torch version"
+fi
+
+# Pick the newest CUDA wheel the driver supports, among the options glibc allows.
+CUDA_TAG="${CU_OPTIONS%% *}"              # best available, as a safe default
 if command -v nvidia-smi >/dev/null; then
   DRIVER_CUDA="$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: *\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1 || true)"
   if [[ -n "${DRIVER_CUDA:-}" ]]; then
-    MAJ="${DRIVER_CUDA%%.*}"
-    MIN="${DRIVER_CUDA##*.}"
-    if   (( MAJ > 12 || (MAJ == 12 && MIN >= 6) )); then CUDA_TAG="cu126"
-    elif (( MAJ == 12 ));                           then CUDA_TAG="cu121"
-    else                                                 CUDA_TAG="cu118"
-    fi
-    echo "  driver supports CUDA $DRIVER_CUDA -> torch wheel index $CUDA_TAG"
+    MAJ="${DRIVER_CUDA%%.*}"; MIN="${DRIVER_CUDA##*.}"
+    want=118
+    (( MAJ > 12 || (MAJ == 12 && MIN >= 1) )) && want=121
+    (( MAJ > 12 || (MAJ == 12 && MIN >= 4) )) && want=124
+    (( MAJ > 12 || (MAJ == 12 && MIN >= 6) )) && want=126
+    for c in $CU_OPTIONS; do
+      if (( ${c#cu} <= want )); then CUDA_TAG="$c"; break; fi
+    done
+    echo "  driver CUDA $DRIVER_CUDA -> torch wheel index $CUDA_TAG"
   fi
 else
   echo "  nvidia-smi not on the login node (expected) -> defaulting to $CUDA_TAG"
 fi
-echo "CUDA_TAG=$CUDA_TAG" > "$PROJECT/.cuda_tag"
+{ echo "CUDA_TAG=$CUDA_TAG"; echo "TORCH_SPEC=$TORCH_SPEC"; echo "GLIBC=${GLIBC:-unknown}"; } \
+    > "$PROJECT/.cuda_tag"
 
 if ! "$ENV_ML/bin/python" -c "import torch" 2>/dev/null; then
-  echo "  installing torch from the $CUDA_TAG wheel index"
+  echo "  installing $TORCH_SPEC from the $CUDA_TAG wheel index"
   "$ENV_ML/bin/python" -m pip install --no-cache-dir \
-      --index-url "https://download.pytorch.org/whl/$CUDA_TAG" torch
+      --index-url "https://download.pytorch.org/whl/$CUDA_TAG" "$TORCH_SPEC"
 else
   echo "  SKIP  torch already installed"
 fi
+# The pins in requirements were captured on the laptop (torch 2.11). If one hard-
+# requires torch >= 2.6 it will refuse to resolve against 2.5.1; relax that single
+# pin - the project code uses none of the APIs that changed, and transformers 5.x
+# runs on torch 2.5.
 "$ENV_ML/bin/python" -m pip install --no-cache-dir -r "$HERE/requirements-plasmid-ml.txt"
 "$ENV_ML/bin/python" "$HERE/_check_ml_env.py"
+mark_ok "$ENV_ML"
 
 banner "2/6  conda environment: platon (pulls prodigal, diamond, hmmer, blast, mummer)"
 create_env "$ENV_PLATON" "platon" platon
+# Verify the binary actually runs before marking the env done, so a half-failed
+# solve is rebuilt on the next run instead of silently skipped.
+"$ENV_PLATON/bin/platon" --help >/dev/null 2>&1 && mark_ok "$ENV_PLATON"   || { echo "FATAL: platon did not install correctly in $ENV_PLATON" >&2; exit 1; }
 
 banner "3/6  conda environment: mobsuite (pulls blast+, mash)"
 create_env "$ENV_MOB" "mobsuite" mob_suite
+"$ENV_MOB/bin/mob_recon" --help >/dev/null 2>&1 && mark_ok "$ENV_MOB"   || { echo "FATAL: mob_recon did not install correctly in $ENV_MOB" >&2; exit 1; }
 
 banner "4/6  Platon database"
 # Platon's database is versioned separately from the tool and an older Platon

@@ -37,6 +37,16 @@ for c in conda mamba singularity apptainer rsync git curl wget; do
   printf '  %-12s %s\n' "$c" "$(command -v $c 2>/dev/null || echo '-- not found --')"
 done
 
+say "4b. system glibc  (DECIDES the torch version 00_setup_envs.sh installs)"
+# glibc < 2.28 means pip torch >= 2.6 installs but will not load (manylinux_2_28),
+# so the setup caps torch at 2.5.1. This is the same limit behind VS Code <= 1.85.2.
+# Catching it here is what turns a mid-install failure into a one-line known fact.
+try bash -c 'ldd --version | head -1'
+echo "  -> glibc $(ldd --version 2>/dev/null | sed -n "1s/.*[^0-9.]\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p"): \
+$(ldd --version 2>/dev/null | sed -n "1s/.*[^0-9.]\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p" | awk -F. '{print ($1<2||($1==2&&$2<28))?"torch capped at 2.5.1":"any torch ok"}')"
+echo "  pip manylinux tags this interpreter accepts (if a python is on PATH):"
+try bash -c 'python -m pip debug 2>/dev/null | grep -i manylinux | head -8 || echo "  (no python on PATH yet - checked again inside the env)"'
+
 say "5. storage and quota  (THE constraint: /data/home is small, do not use it)"
 try df -h /data/home /data/project "$HOME"
 try bash -c 'quota -s 2>/dev/null || echo "(no quota command)"'
@@ -51,8 +61,9 @@ echo "  This plan needs roughly 30 GB:"
 echo "    dataset (rsync)   2.5 GB      Platon DB        2.8 GB"
 echo "    MOB-suite DB      ~4 GB       ESM embeddings   3-5 GB"
 echo "    conda envs        ~8 GB       logs/outputs     ~1 GB"
-echo "  If the free space is under ~30 GB, use the fallback ladder in section 4"
-echo "  of the plan (float16 embeddings first, then drop ESM shards after merge)."
+echo "    embeddings        5.2 GB (measured: 8.79 M ORFs x 320, float16)"
+echo "  Total about 24 GB. If free space is under that, use the fallback ladder in"
+echo "  MANUAL.md appendix C (drop ESM shards after merge, then Platon DB)."
 
 say "6. internet access from the login node (databases are downloaded here)"
 for url in https://zenodo.org https://huggingface.co https://conda.anaconda.org; do
@@ -60,10 +71,13 @@ for url in https://zenodo.org https://huggingface.co https://conda.anaconda.org;
   printf '  %-32s HTTP %s\n' "$url" "$code"
 done
 
-say "7. GPU visibility from the login node"
+say "7. GPU driver and its CUDA version (picks the torch wheel's cuXXX tag)"
 echo "  (a login node normally has NO GPU - 'command not found' or 'no devices' here"
-echo "   is expected and not a problem; the real check runs inside a GPU allocation)"
+echo "   is expected; the driver's CUDA version is what 00_setup_envs.sh matches)"
 try nvidia-smi
+echo "  if blank above, grab the driver from a short GPU allocation:"
+echo "    srun -p ${PART_GPU:-gpu} --qos=interactive-gpu --gres=gpu:1g.5gb:1 -t 2 \\"
+echo "         --pty nvidia-smi | grep 'CUDA Version'"
 
 say "8. this account's recent Slurm history"
 try bash -c 'sacct -u "$(whoami)" --start=$(date -d "7 days ago" +%F) -o JobID,JobName%20,State,Elapsed,NodeList 2>/dev/null | head -20'

@@ -49,6 +49,11 @@ ITEMS=(
   "dataset pipeline1/reports/dataset_summary_mixed.csv"
   "baseline/results_mixed"
   "esm2-attention/results_mixed"
+  # The laptop's embedding cache (~42 MB) is sent so 22_esm_train can rerun the
+  # ORIGINAL config on the server and confirm the refactor still reproduces the
+  # published MCCs. At <2% of this transfer it is not worth skipping, and with the
+  # server on a different torch/GPU it is the only check that the port is faithful.
+  "esm2-attention/cache_mixed"
 )
 
 # A checksum manifest is built here, on the machine that produced the data, and
