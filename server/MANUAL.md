@@ -159,6 +159,16 @@ bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 6/6  ESM-2 weights           โหลดไว้ล่วงหน้าเผื่อ compute node ไม่มีเน็ต
 ```
 
+เสร็จแล้วสคริปต์เขียน `server/plasmid-ml-server.lock.txt` (ผลของ `pip freeze`) —
+**commit ไฟล์นี้** เพราะเป็นหลักฐานว่าตัวเลขบนเซิร์ฟเวอร์มาจาก torch/numpy เวอร์ชันไหน
+ใช้อ้างในส่วน Methods ของ paper และอธิบายได้ว่าทำไม regression diff ถึงไม่เป็นศูนย์พอดี
+(torch 2.5.1 บนเซิร์ฟเวอร์ vs 2.11 บนโน้ตบุ๊ก)
+
+> conda env ทั้งหมดอยู่ที่ `$PROJECT/envs/` ชื่อ `plasmid-ml` (ไม่ใช่ `plasmid-ml-py311`
+> ที่อาจเผลอสร้างด้วยมือตอน debug) — `env.sh` ชี้ `ENV_ML` ไปที่ `plasmid-ml` ถ้าสร้างด้วยมือ
+> ชื่ออื่นไว้ ให้ลบทิ้ง (`conda env remove -p $PROJECT/envs/<ชื่อนั้น>`) แล้วให้สคริปต์สร้าง
+> `plasmid-ml` เอง จะได้ไม่ต้องดูแล env สองชุดและ sbatch หา env เจอ
+
 > **เรื่อง glibc กับ torch (สำคัญ — เคยติดมาแล้ว):** CU-AIM ใช้ glibc 2.17 ซึ่งเป็น
 > เหตุผลเดียวกับที่ VS Code ต้องเป็น ≤ 1.85.2 (ขั้น 0.4) — torch ≥ 2.6 และ VS Code ≥ 1.86
 > ต่างก็ต้องการ glibc ≥ 2.28 ถ้า `pip install torch` ดึงรุ่นล่าสุด (เช่น 2.11) มันจะลงได้

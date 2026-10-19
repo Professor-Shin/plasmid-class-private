@@ -61,3 +61,19 @@ server/dataset_md5.txt
 # document. Both are read-only references, not part of the project's code.
 survival-manual-cuaim.pdf
 The Siwak System CI Guideline.pdf
+
+# --- server working dirs created INSIDE the repo ---
+# On CU-AIM the project directory IS the clone, and env.sh points conda, pip,
+# HuggingFace, tmp and the tool databases at $PROJECT/... So these appear inside
+# the working tree and MUST be ignored: without this, `git add -A` on the server
+# would try to stage several GB of conda environments and GB-scale databases.
+envs/
+db/
+containers/
+tmp/
+.hf/
+.conda-pkgs/
+.pip-cache/
+.singularity-cache/
+.singularity-tmp/
+.cuda_tag

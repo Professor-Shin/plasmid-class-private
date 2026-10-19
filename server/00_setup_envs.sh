@@ -109,12 +109,27 @@ if ! "$ENV_ML/bin/python" -c "import torch" 2>/dev/null; then
 else
   echo "  SKIP  torch already installed"
 fi
-# The pins in requirements were captured on the laptop (torch 2.11). If one hard-
-# requires torch >= 2.6 it will refuse to resolve against 2.5.1; relax that single
-# pin - the project code uses none of the APIs that changed, and transformers 5.x
-# runs on torch 2.5.
-"$ENV_ML/bin/python" -m pip install --no-cache-dir -r "$HERE/requirements-plasmid-ml.txt"
+# --only-binary=:all: is important on glibc 2.17: if a pinned version has no
+# manylinux2014 wheel, pip fails fast with a clear "no matching distribution"
+# instead of trying to compile from source and dying in a wall of C errors. The
+# fix in that case is to relax that one pin - the project code uses none of the
+# APIs that moved, and transformers 5.x runs on torch 2.5.
+"$ENV_ML/bin/python" -m pip install --no-cache-dir --only-binary=:all: \
+    -r "$HERE/requirements-plasmid-ml.txt"
+# A dependency could try to drag torch back up to a glibc-2.28 wheel; confirm it
+# did not, since that reintroduces the exact failure this whole section avoids.
+"$ENV_ML/bin/python" - <<'PY'
+import torch
+assert torch.__version__.startswith("2.5."), \
+    f"a dependency changed torch to {torch.__version__}; pin it back to 2.5.1"
+print(f"  torch still {torch.__version__}")
+PY
 "$ENV_ML/bin/python" "$HERE/_check_ml_env.py"
+# A full version lock, for the paper's Methods and to document why the server's
+# regression diff is not exactly zero (different torch/numpy than the laptop). It
+# lives under server/ so it can be committed; envs/ itself is gitignored.
+"$ENV_ML/bin/python" -m pip freeze > "$REPO/server/plasmid-ml-server.lock.txt"
+echo "  wrote server/plasmid-ml-server.lock.txt ($(wc -l < "$REPO/server/plasmid-ml-server.lock.txt") packages) - commit it"
 mark_ok "$ENV_ML"
 
 banner "2/6  conda environment: platon (pulls prodigal, diamond, hmmer, blast, mummer)"
