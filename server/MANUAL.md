@@ -100,9 +100,17 @@ bash ~/probe_server.sh 2>&1 | tee ~/probe.txt
 
 **เช็คพื้นที่จาก §5**: ต้องมีว่าง **~24 GB** ถ้าไม่ถึง ไปอ่าน [ภาคผนวก C](#ภาคผนวก-c--พื้นที่ไม่พอ) ก่อน
 
-**เช็ค §1 ว่าบัญชีมี QoS อะไร** คู่มือ CU-AIM ระบุ `cpu40h` (40 CPU) และ `gpu40g`
-(1×7g.40gb, 16 CPU, 64 GB, 8 วัน) ซึ่งเป็นสองตัวที่งานนี้ใช้ ถ้า `check_qos` ไม่มีสองตัวนี้
-ให้แก้ `QOS_CPU` / `QOS_GPU` / `GRES_GPU` ใน `env.sh` ตามที่มีจริง
+**เช็ค §1 ว่าบัญชีมี QoS อะไร** งานนี้ใช้ `cpu40h` (40 CPU, 1 TB, 4 วัน) และ `gpu40g`
+(1×7g.40gb, 16 CPU, 64 GB) ถ้า `check_qos` ไม่มีสองตัวนี้ ให้แก้ `QOS_CPU` / `QOS_GPU` /
+`GRES_GPU` ใน `env.sh` ตามที่มีจริง
+
+> **⚠️ เวลาของ `gpu40g` = 8 ชั่วโมง ไม่ใช่ 8 วัน** — Table 3.1 ของคู่มือ CU-AIM เขียนว่า 8 days
+> แต่ `check_qos` บนเครื่องจริงรายงาน `MaxWall 08:00:00` ตัวคู่มือเองสั่งให้ถือผล `check_qos`
+> เป็นหลัก `env.sh` จึงตั้ง `TIME_EMBED` / `TIME_TRAIN` = `08:00:00` **อ่านจาก `check_qos`
+> ของคุณเองเสมอ** ค่าพวกนี้ผู้ดูแลเปลี่ยนได้
+>
+> QoS ที่ยาวกว่าถ้าจำเป็น: `gpu10gh` = **4 วัน** (16 CPU, 64 GB) แต่ได้ MIG `2g.10gb`
+> แทน A100 เต็มใบ → ช้าลงต่อ shard แต่จบ split เดียวในงานเดียวได้
 
 **เช็ค §3 ว่า `MaxArraySize` ≥ 116** (งาน Platon/MOB เป็น job array 116 งาน)
 
@@ -167,6 +175,21 @@ bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 > **ถ้า compute node ออกเน็ตไม่ได้** (ดู §6 ของ probe) ให้รันสคริปต์บน login node **หนึ่งรอบ**
 > เพื่อดึง DB (เบา ไม่ถูกฆ่า) แล้วรันอีกรอบใน allocation ให้ solve env — ทุกขั้นข้ามเองเมื่อ
 > ผลลัพธ์ของขั้นนั้นมีแล้ว จึงต่อกันได้พอดี
+
+**ถ้า solve ช้าจนทนไม่ได้** — CU-AIM มีแค่ `Anaconda3/2021.11` (conda 4.x) ซึ่ง**ไม่มี** plugin
+`libmamba` และ `conda install -n base` ก็ทำไม่ได้ (base มาจาก module ที่ใช้ร่วมกันทั้งคลัสเตอร์
+**อย่าแตะ**) ใช้ `micromamba` แบบไบนารีเดี่ยวใน `$PROJECT` แทน ไม่กระทบใคร:
+
+```bash
+mkdir -p "$PROJECT/bin" && cd "$PROJECT/bin"
+curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj bin/micromamba --strip-components=1
+ln -sf "$PROJECT/bin/micromamba" "$PROJECT/bin/mamba"   # สคริปต์มองหาชื่อ `mamba`
+export PATH="$PROJECT/bin:$PATH"
+mamba --version
+```
+
+แล้วรัน `00_setup_envs.sh` ตามเดิม จะขึ้น `using mamba for environment solves` — solve เร็วกว่า
+หลายเท่าและกิน RAM น้อยกว่ามาก
 
 ใช้เวลา ~30-60 นาที ส่วนใหญ่รอโหลด Platon DB (1.6 GB) กับ MOB-suite DB สคริปต์ทำ 6 ขั้น:
 
@@ -522,13 +545,20 @@ comm -23 <(cut -d, -f1 tools-baseline/shards/manifest.csv | tail -n +2 | sort) \
          <(ls tools-baseline/out/platon 2>/dev/null | sort)
 ```
 
-**ถ้า `20_esm_embed` ชน 2 วันซ้ำ ๆ** ขอเวลามากขึ้น (`gpu40g` ให้ถึง 8 วัน) แต่คู่มือ CU-AIM
-เตือนว่าขอใหญ่รอคิวนานกว่า — ขอเพิ่มทีละขั้น:
+**ถ้า `20_esm_embed` ชน 8 ชม. ของ `gpu40g`** — ขอเวลาเพิ่มในคิวเดิมไม่ได้ เพราะ 8 ชม.
+คือ `MaxWall` ของ QoS นั้น (ไม่ใช่ 8 วันอย่างที่ Table 3.1 ของคู่มือเขียน) มีสองทาง:
 
 ```bash
-sbatch --partition=$PART_GPU --qos=$QOS_GPU --gres=$GRES_GPU \
-       --cpus-per-task=$GPU_CPUS --mem=$GPU_MEM --time=4-00:00:00 server/20_esm_embed.sh
+# ทาง 1 — submit ซ้ำ: shard ที่ cache แล้วถูก skip เดินต่อจากที่ค้าง (ง่ายสุด)
+sbatch --partition=$PART_GPU --qos=$QOS_GPU --gres=$GRES_GPU --account=$CUAIM_ACCOUNT \
+       --cpus-per-task=$GPU_CPUS --mem=$GPU_MEM --time=$TIME_EMBED server/20_esm_embed.sh
+
+# ทาง 2 — ย้ายไป gpu10gh ที่ให้ 4 วัน (MIG 2g.10gb เล็กกว่า ช้ากว่า แต่จบในงานเดียว)
+sbatch --partition=$PART_GPU --qos=gpu10gh --gres=gpu:2g.10gb:1 --account=$CUAIM_ACCOUNT \
+       --cpus-per-task=16 --mem=60G --time=4-00:00:00 server/20_esm_embed.sh
 ```
+
+เช็กเหลือกี่ shard ก่อนตัดสินใจด้วย `_shard_plan.py --pending-only` ข้างล่าง
 
 **ยกเลิกงาน**
 

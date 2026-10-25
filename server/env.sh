@@ -20,7 +20,8 @@
 : "${CUAIM_ACCOUNT:=}"
 
 # ------------------------------------------------------------------- Slurm ----
-# CPU work: Platon and MOB-suite. cpu40h is documented as 40 CPUs / 1 TB / 4 days.
+# CPU work: Platon and MOB-suite. cpu40h is 40 CPUs / 1 TB / 4 days, confirmed
+# against check_qos on the live cluster (unlike the GPU wall clock below).
 : "${QOS_CPU:=cpu40h}"
 : "${PART_CPU:=cpu}"
 : "${CPUS_PER_TOOL:=8}"
@@ -30,15 +31,25 @@
 : "${MEM_PER_TOOL:=16G}"
 : "${TIME_PER_TOOL:=02:00:00}"
 
-# GPU work: ESM-2. gpu40g is documented as 16 CPUs / 1x7g.40gb / 64 GB / 8 days.
-# 7g.40gb is a whole A100-40GB, so there is no MIG memory ceiling to design around.
+# GPU work: ESM-2. gpu40g gives 16 CPUs / 1x7g.40gb / 64 GB, and 7g.40gb is a
+# whole A100-40GB, so there is no MIG memory ceiling to design around.
+#
+# WALL CLOCK: the manual's Table 3.1 says 8 days for gpu40g; `check_qos` on the
+# live cluster says MaxWall = 08:00:00 - eight HOURS. The manual tells you to
+# treat check_qos as authoritative, so both GPU stages are sized for 8 h. Both
+# are resumable (20_esm_embed skips cached shards, and a merge skips finished
+# splits), so hitting the wall costs a resubmit, not a restart.
+#
+# If embedding needs more than one wall clock window, gpu10gh is the long option:
+# 4 days, 16 CPUs, 64 GB, but a 2g.10gb MIG slice instead of the whole A100 -
+# slower per shard, yet it can run the whole split in one job.
 : "${QOS_GPU:=gpu40g}"
 : "${PART_GPU:=gpu}"
 : "${GRES_GPU:=gpu:7g.40gb:1}"
 : "${GPU_CPUS:=16}"
 : "${GPU_MEM:=60G}"
-: "${TIME_EMBED:=2-00:00:00}"
-: "${TIME_TRAIN:=1-00:00:00}"
+: "${TIME_EMBED:=08:00:00}"
+: "${TIME_TRAIN:=08:00:00}"
 
 # ----------------------------------------------------------------- modules ----
 : "${MODULE_CONDA:=Anaconda3}"

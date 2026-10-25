@@ -56,8 +56,9 @@ elif conda create --solver=libmamba --help >/dev/null 2>&1; then
   echo "  using conda's libmamba solver for environment solves"
 else
   echo "  WARN: only conda's classic solver is available - it may need several GB"
-  echo "        of RAM. If a solve is 'Killed', see MANUAL.md step 2 (run the"
-  echo "        setup inside an srun allocation, or install conda-libmamba-solver)."
+  echo "        of RAM and 20+ minutes per environment. CU-AIM ships Anaconda3/2021.11"
+  echo "        (conda 4.x), which has no libmamba plugin, so the fix is either an"
+  echo "        srun allocation or a standalone micromamba - see MANUAL.md step 2."
 fi
 
 # An env counts as done only when mark_ok has written its .setup_ok sentinel,

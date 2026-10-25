@@ -91,4 +91,12 @@ echo "  GRES_GPU=        <e.g. gpu:7g.40gb:1, from section 2>"
 echo "  MODULE_CONDA=    <Anaconda3 or the name shown in section 4>"
 echo "  MODULE_CUDA=     <CUDA/11.8.0 or the name shown in section 4>"
 echo
-echo "Then: 1) edit server/env.sh   2) bash server/00_setup_envs.sh   3) bash server/01_sync_from_laptop.sh (on the laptop)"
+echo "Then: 1) edit server/env.sh"
+echo "      2) srun -p \$PART_CPU --qos=\$QOS_CPU -c 4 --mem=24G -t 3:00:00 --pty bash -l"
+echo "         then inside that allocation: bash server/00_setup_envs.sh"
+echo "         (a bioconda solve on the login node gets OOM-killed; manual 2.1)"
+echo "      3) bash server/01_sync_from_laptop.sh   (on the laptop, not here)"
+echo
+echo "  NOTE: compare the MaxWall column of check_qos (section 1) against the TIME_*"
+echo "        values in env.sh. The manual's Table 3.1 and the live cluster disagree:"
+echo "        gpu40g is 08:00:00, not 8 days. check_qos wins."
