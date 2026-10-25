@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=verify-data
 #SBATCH --output=server/logs/verify-data-%j.out
 #SBATCH --error=server/logs/verify-data-%j.err

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=esm-embed
 #SBATCH --output=server/logs/esm-embed-%j.out
 #SBATCH --error=server/logs/esm-embed-%j.err

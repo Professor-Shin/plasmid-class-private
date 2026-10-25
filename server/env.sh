@@ -42,6 +42,11 @@
 
 # ----------------------------------------------------------------- modules ----
 : "${MODULE_CONDA:=Anaconda3}"
+# CUDA/11.8.0 is only the manual's example (4.4.1). Pick the module closest to
+# the driver that probe_server.sh section 7 reports - on CU-AIM the driver is
+# 12.4, so a CUDA/12.x module matches the cu124 torch wheel 00_setup_envs.sh
+# selects. The torch wheels ship their own CUDA runtime, so a mismatch here only
+# matters for anything compiled against the module (cuaim_modules just warns).
 : "${MODULE_CUDA:=CUDA/11.8.0}"
 
 # ------------------------------------------------- environments and databases -

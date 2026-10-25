@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=collect-tools
 #SBATCH --output=server/logs/collect-tools-%j.out
 #SBATCH --error=server/logs/collect-tools-%j.err

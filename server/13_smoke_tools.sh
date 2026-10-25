@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=smoke-tools
 #SBATCH --output=server/logs/smoke-tools-%j.out
 #SBATCH --error=server/logs/smoke-tools-%j.err

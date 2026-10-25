@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=shard
 #SBATCH --output=server/logs/shard-%j.out
 #SBATCH --error=server/logs/shard-%j.err

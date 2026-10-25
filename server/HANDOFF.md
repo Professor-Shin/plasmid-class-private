@@ -6,7 +6,7 @@
 >
 > ไฟล์นี้ sync ผ่าน git เครื่องไหนก็เหมือนกัน แก้แล้ว commit/push เพื่อให้อีกเครื่องได้ด้วย
 
-อัปเดตล่าสุด: commit `2b6d440` (2026-10-26)
+อัปเดตล่าสุด: 2026-10-26 (หลังรอบตรวจ MANUAL ↔ `survival-manual-cuaim.pdf`)
 
 ---
 
@@ -46,13 +46,23 @@
 5. **PROJECT = repo** — `envs/ db/ .hf/ tmp/` อยู่ใน git tree แต่ gitignore ไว้แล้ว **อย่าลบ rule
    พวกนี้** ไม่งั้น `git add -A` จะดูด conda env หลาย GB เข้า git
 6. **`cd "$PROJECT"` ก่อน `sbatch` เสมอ** — error `tee: ... No such file` = อยู่ผิด directory
+7. **`00_setup_envs.sh` ต้องรันใน allocation ไม่ใช่บน login node เปล่า ๆ** — conda classic
+   solver กิน RAM หลาย GB, login node ฆ่าทิ้งเป็น `Killed` / exit 137 (เจอตอน solve
+   `mob_suite` บน `cuaim-frontend1`) ขอ `srun -p $PART_CPU --qos=$QOS_CPU -c 4 --mem=16G
+   -t 2:00:00 --pty bash -l` ก่อน หรือลง `conda-libmamba-solver` ใน base — คู่มือ CU-AIM §2.1
+   กัน login node ไว้ให้จัดการไฟล์/submit เท่านั้น
+8. **job script ต้องขึ้นต้น `#!/bin/bash -l`** — `module` เป็น shell function จาก
+   `/etc/profile.d` ซึ่ง non-login shell ไม่ source (ทุก listing ในคู่มือ CU-AIM ใช้ `-l`)
+   `lib.sh` มี `cuaim_init_modules` กู้จาก `$MODULESHOME` ให้อีกชั้นแล้ว
 
 ## ลำดับงานบนเซิร์ฟเวอร์
 
 ```
 0. git pull                                          # เอาโค้ดล่าสุด
 1. bash server/probe_server.sh | tee server/logs/probe.txt   # แล้วกรอก env.sh
-2. bash server/00_setup_envs.sh                      # conda envs + DB + ESM weights
+2. srun -p $PART_CPU --qos=$QOS_CPU -c 4 --mem=16G -t 2:00:00 --pty bash -l
+   bash server/00_setup_envs.sh                      # conda envs + DB + ESM weights
+                                                     # (ใน allocation! login node จะ OOM-kill)
 3. (บนโน้ตบุ๊ก) bash server/01_sync_from_laptop.sh   # dataset ~2.5 GB
 4. sbatch server/02_verify_data.sh                   # ตรวจข้อมูล
 5. bash server/submit_all.sh                         # รันทั้ง pipeline
@@ -71,7 +81,11 @@ job graph:
 
 - [x] เขียนสคริปต์ + MANUAL ครบ, push แล้ว (commit `2b6d440`)
 - [x] glibc/torch fix ยืนยันบนเครื่องจริง (`torch 2.5.1+cu124` โหลดได้)
+- [x] ตรวจ MANUAL เทียบ `survival-manual-cuaim.pdf` + แก้ที่ขัดกัน (login node / `-l` /
+      MODULE_CUDA / เหตุผล singularity)
 - [ ] `00_setup_envs.sh` รันครบ 6/6 บนเซิร์ฟเวอร์  ← **กำลังอยู่ขั้นนี้**
+      ติดที่ 3/6 `mobsuite`: solve ถูก OOM-kill บน login node → รันใหม่ใน allocation
+      (env 1/6, 2/6 ที่ผ่านแล้วจะถูก skip ด้วย `.setup_ok` ไม่ต้องเริ่มใหม่)
 - [ ] sync dataset + `02_verify_data.sh` ผ่าน
 - [ ] `submit_all.sh` + ได้ `report_*.md`
 

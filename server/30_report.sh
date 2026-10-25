@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=report
 #SBATCH --output=server/logs/report-%j.out
 #SBATCH --error=server/logs/report-%j.err

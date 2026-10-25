@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=platon
 #SBATCH --output=server/logs/platon-%A_%a.out
 #SBATCH --error=server/logs/platon-%A_%a.err

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=esm-merge
 #SBATCH --output=server/logs/esm-merge-%j.out
 #SBATCH --error=server/logs/esm-merge-%j.err

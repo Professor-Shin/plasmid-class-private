@@ -1,10 +1,30 @@
 #!/bin/bash
 # Shared helpers for every CU-AIM job script. Source env.sh first.
 
+# `module` is a shell function defined by /etc/profile.d, which only a login
+# shell sources. Every job script therefore uses `#!/bin/bash -l` (as all the
+# manual's listings do), but `bash script.sh` from an already-set-up shell does
+# not pass the function on to the child, so re-create it from MODULESHOME when
+# it is missing rather than failing with "module: command not found".
+cuaim_init_modules() {
+  declare -F module >/dev/null && return 0
+  command -v module >/dev/null && return 0
+  local init
+  for init in "${MODULESHOME:-/usr/share/Modules}/init/bash" \
+              /etc/profile.d/modules.sh /etc/profile.d/lmod.sh \
+              /usr/share/lmod/lmod/init/bash; do
+    [[ -r "$init" ]] && { source "$init"; declare -F module >/dev/null && return 0; }
+  done
+  echo "FATAL: 'module' is unavailable and no modules init script was found." >&2
+  echo "       Run this script with bash -l, or set MODULESHOME." >&2
+  return 1
+}
+
 # Load the shared software stack. A batch job starts in a fresh non-interactive
 # shell and does NOT inherit the modules of the terminal that submitted it
 # (manual 4.4.5), so every job script must call this itself.
 cuaim_modules() {
+  cuaim_init_modules || return 1
   module purge 2>/dev/null || true
   module load "$MODULE_CONDA" || { echo "FATAL: module load $MODULE_CONDA failed" >&2; return 1; }
   if [[ "${1:-}" == "gpu" ]]; then

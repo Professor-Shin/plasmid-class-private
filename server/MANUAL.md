@@ -70,8 +70,12 @@ Host cuaim
 ที่โควต้าเล็ก ต้องรู้ `PROJECT` ก่อนค่อย clone (ขั้น 2)
 
 ```bash
-# รันบนโน้ตบุ๊ก: ส่ง probe script ขึ้นไป
-scp -i ~/.ssh/id_rsa_cuaim "d:/senior project/server/probe_server.sh" \
+# รันบนเครื่องตัวเอง: ส่ง probe script ขึ้นไป
+# $LOCAL_REPO = โฟลเดอร์ repo บนเครื่องนี้
+#   Windows/Git Bash: "d:/senior project"
+#   Linux:            /media/siwakorn/YUTHAPONG/plasmid-class-private
+LOCAL_REPO="<path ของ repo บนเครื่องนี้>"
+scp -i ~/.ssh/id_rsa_cuaim "$LOCAL_REPO/server/probe_server.sh" \
     <user>@161.200.107.77:~/
 
 # แล้ว ssh ขึ้นไปรัน
@@ -87,7 +91,12 @@ bash ~/probe_server.sh 2>&1 | tee ~/probe.txt
 | `CUAIM_ACCOUNT` | §1 `check_group` / `sacctmgr` | `naruemon` |
 | `PART_CPU` / `PART_GPU` | §2 รายชื่อ partition | `cpu` / `gpu` |
 | `GRES_GPU` | §2 รายการ GRES | `gpu:7g.40gb:1` |
-| `MODULE_CONDA` / `MODULE_CUDA` | §4 | `Anaconda3` / `CUDA/11.8.0` |
+| `MODULE_CONDA` / `MODULE_CUDA` | §4 (+ §7 ดู driver) | `Anaconda3` / `CUDA/12.x` |
+
+> `CUDA/11.8.0` ใน `env.sh` เป็นแค่ค่าตัวอย่างจากคู่มือ CU-AIM §4.4.1 — คู่มือ §4.4.2 สั่งให้
+> เช็กให้ตรงกับ driver เอง เครื่องจริงรายงาน driver **12.4** (probe §7) ให้เลือก module `CUDA/12.x`
+> ที่ `module avail` มี จะได้ตรงกับ wheel `cu124` ที่สคริปต์เลือก (ถ้าไม่ตรงก็ยังรันได้ เพราะ
+> torch แบก CUDA runtime มาเอง — `cuaim_modules` จะแค่ WARN)
 
 **เช็คพื้นที่จาก §5**: ต้องมีว่าง **~24 GB** ถ้าไม่ถึง ไปอ่าน [ภาคผนวก C](#ภาคผนวก-c--พื้นที่ไม่พอ) ก่อน
 
@@ -141,12 +150,23 @@ nano server/env.sh      # หรือเปิดใน VS Code
 > ที่ย้าย cache ออกจาก `/data/home` ซึ่งโควต้าเล็กมาก — ถ้าไม่มีบรรทัดนั้น `conda create`
 > จะลง `~/.conda/envs` และ home เต็มทันที (env 3 ตัว ~8 GB + DB ~7 GB)
 
-**ติดตั้ง** — รันบน login node ได้ (เป็นแค่การดาวน์โหลดและติดตั้ง ไม่ใช่การคำนวณ):
+**ติดตั้ง** — **อย่ารันเปล่า ๆ บน login node** คู่มือ CU-AIM §2.1 กันช่อง login node ไว้ให้
+จัดการไฟล์กับ submit เท่านั้น และ conda solve ของ bioconda หนักพอที่ login node จะ**ฆ่าทิ้ง**
+(เจอมาแล้ว: `Killed` / exit 137 ตอน solve `mob_suite` บน `cuaim-frontend1`) ให้ขอ allocation
+เล็ก ๆ ก่อนตามคู่มือ §4.2.1:
 
 ```bash
+cd "$PROJECT" && source server/env.sh
+srun -p "$PART_CPU" --qos="$QOS_CPU" -c 4 --mem=16G -t 2:00:00 --pty bash -l
+
+# ได้ shell บน compute node แล้วค่อยรัน
 cd "$PROJECT"
 bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 ```
+
+> **ถ้า compute node ออกเน็ตไม่ได้** (ดู §6 ของ probe) ให้รันสคริปต์บน login node **หนึ่งรอบ**
+> เพื่อดึง DB (เบา ไม่ถูกฆ่า) แล้วรันอีกรอบใน allocation ให้ solve env — ทุกขั้นข้ามเองเมื่อ
+> ผลลัพธ์ของขั้นนั้นมีแล้ว จึงต่อกันได้พอดี
 
 ใช้เวลา ~30-60 นาที ส่วนใหญ่รอโหลด Platon DB (1.6 GB) กับ MOB-suite DB สคริปต์ทำ 6 ขั้น:
 
@@ -196,10 +216,10 @@ bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
 
 ## ขั้น 3 — ส่ง dataset ขึ้น (รันบน**โน้ตบุ๊ก** ไม่ใช่บนเซิร์ฟเวอร์)
 
-เปิด terminal บนโน้ตบุ๊ก (Git Bash) ที่โฟลเดอร์โปรเจกต์ **ต่อ VPN ไว้**:
+เปิด terminal บนเครื่องที่มี dataset อยู่ (Windows ใช้ Git Bash) ที่โฟลเดอร์ repo **ต่อ VPN ไว้**:
 
 ```bash
-cd "d:/senior project"
+cd "$LOCAL_REPO"        # เช่น "d:/senior project" หรือ /media/siwakorn/YUTHAPONG/plasmid-class-private
 CUAIM_USER=<user> \
 CUAIM_KEY=~/.ssh/id_rsa_cuaim \
 PROJECT=/data/project/<group>/<dir> \
@@ -550,11 +570,18 @@ scancel -u "$USER"              # ยกเลิกทุก job ของเ�
    (`999999` = "เอาเท่าที่มี" เพราะโค้ดใช้ `min(wanted, len(pool))` และ weight จะเป็น 1.0)
    ยังปลดคอขวด `max_orfs` และ class-ratio ได้ครบ เสียแค่ขนาด train set — ประหยัด
    embeddings ไปประมาณครึ่ง (train คิดเป็น ~70% ของ fragment ทั้งหมด)
-5. **ใช้ Singularity แทน conda** — ประหยัด ~6 GB ตั้ง `TOOL_RUNTIME=singularity` ใน `env.sh`
-   แล้วดึง image (ดูคู่มือ CU-AIM บทที่ 6):
+5. **ใช้ Singularity แทน conda** — ทางเลือกสุดท้าย คู่มือ CU-AIM บทที่ 6 บอกให้หยิบ container
+   มาใช้ *เมื่อ module + conda ให้ dependency ที่เข้ากันไม่ได้* เท่านั้น ไม่ใช่เพื่อประหยัดพื้นที่
+   (ที่ได้คืนมา ~6 GB เป็นผลพลอยได้) ถ้าจะใช้: ตั้ง `TOOL_RUNTIME=singularity` ใน `env.sh`
+   แล้ว **`source server/env.sh` ก่อนดึง image** เพราะคู่มือ §6.1 ย้ำว่า cache/tmp ของ
+   singularity ต้องไม่ลง `$HOME` (`env.sh` export `SINGULARITY_CACHEDIR` / `SINGULARITY_TMPDIR`
+   / `TMPDIR` ไป `$PROJECT` ให้แล้ว — ถ้าลืม home จะเต็มทันที):
    ```bash
+   cd "$PROJECT" && source server/env.sh
+   mkdir -p "$PROJECT/containers"
    singularity pull "$PROJECT/containers/platon.sif" \
      docker://quay.io/biocontainers/platon:<tag>
+   singularity cache clean --force      # §6.1 คืนพื้นที่ cache หลังได้ .sif แล้ว
    ```
 
 ---
@@ -583,6 +610,7 @@ PLATON_DB_URL=<url ใหม่> bash server/00_setup_envs.sh
 | อาการ | สาเหตุ | แก้ |
 |---|---|---|
 | `ssh` ค้าง / timeout | VPN ไม่ได้ต่อ | ต่อ Cisco AnyConnect |
+| `Solving environment: ... Killed` (exit 137) ตอน `00_setup_envs.sh` | conda classic solver กิน RAM หลาย GB → login node ฆ่า process | ขอ allocation ก่อน (ขั้น 2) หรือ `conda install -n base -c conda-forge conda-libmamba-solver` แล้วรันซ้ำ |
 | `Permission denied (publickey)` | key ยังไม่ถูกอนุมัติ หรือใส่ `-i` ผิดไฟล์ | ส่ง `.pub` ให้ผู้ดูแล / เช็ค path |
 | `sbatch: error: Batch job submission failed: Invalid qos specification` | QoS ที่ใส่บัญชีไม่มีสิทธิ์ | `check_qos` แล้วแก้ `env.sh` |
 | `slurmstepd: error: execve(): ... No such file` | submit จากโฟลเดอร์อื่น | `cd "$PROJECT"` ก่อน `sbatch` ทุกครั้ง |

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 # Submit the whole pipeline with the right dependencies, from the login node.
 #
 #   bash server/submit_all.sh                # everything

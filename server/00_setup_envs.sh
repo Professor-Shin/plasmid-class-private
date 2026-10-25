@@ -1,9 +1,19 @@
-#!/bin/bash
-# One-time setup, run on the CU-AIM LOGIN NODE (not under Slurm): creates the
-# three conda environments in project storage and downloads the two tool
-# databases plus the ESM-2 weights.
+#!/bin/bash -l
+# One-time setup: creates the three conda environments in project storage and
+# downloads the two tool databases plus the ESM-2 weights.
 #
-#   bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
+# Run it inside a small CPU allocation, NOT bare on the login node. The manual
+# (2.1) reserves the login node for file management and submission, and a
+# bioconda solve is heavy enough that the login node kills it (exit 137):
+#
+#   cd "$PROJECT" && source server/env.sh
+#   srun -p "$PART_CPU" --qos="$QOS_CPU" -c 4 --mem=16G -t 2:00:00 --pty bash -l
+#   cd "$PROJECT" && bash server/00_setup_envs.sh 2>&1 | tee server/logs/setup.txt
+#
+# The downloads work either way; if the compute nodes turn out to have no
+# internet access (probe_server.sh section 6), run the script once on the login
+# node to fetch the databases, then again inside the allocation for the solves -
+# each step is skipped once its own output is in place.
 #
 # Safe to re-run: every step is skipped if its output already exists, so an
 # interrupted download or a failed solve can simply be retried.
@@ -31,11 +41,23 @@ df -h "$PROJECT" | sed 's/^/  df| /'
 cuaim_modules gpu
 
 # A faster solver if the cluster has one: conda's classic solver can take 20+
-# minutes on the bioconda dependency graphs below.
+# minutes on the bioconda dependency graphs below AND needs several GB of RAM,
+# which is what gets a solve killed on a login node (seen: "Killed" with exit
+# 137 while solving mob_suite on cuaim-frontend1). libmamba ships with recent
+# Anaconda3 modules and solves the same specs in a fraction of the memory.
 SOLVER=(conda)
+SOLVER_ARGS=()
 if command -v mamba >/dev/null; then
   SOLVER=(mamba)
   echo "  using mamba for environment solves"
+elif conda create --solver=libmamba --help >/dev/null 2>&1; then
+  # The flag only parses when conda-libmamba-solver is actually installed.
+  SOLVER_ARGS=(--solver=libmamba)
+  echo "  using conda's libmamba solver for environment solves"
+else
+  echo "  WARN: only conda's classic solver is available - it may need several GB"
+  echo "        of RAM. If a solve is 'Killed', see MANUAL.md step 2 (run the"
+  echo "        setup inside an srun allocation, or install conda-libmamba-solver)."
 fi
 
 # An env counts as done only when mark_ok has written its .setup_ok sentinel,
@@ -52,7 +74,22 @@ create_env() {         # create_env <prefix> <description> <packages...>
   fi
   echo "  CREATE $desc -> $prefix"
   rm -rf "$prefix"                 # drop any half-built leftover before rebuilding
-  "${SOLVER[@]}" create -y -p "$prefix" -c conda-forge -c bioconda "$@"
+  local rc=0
+  # ${a[@]+...}: bash 4.2 (CentOS 7, the glibc 2.17 host) treats an empty array
+  # as unbound under `set -u`.
+  "${SOLVER[@]}" create -y ${SOLVER_ARGS[@]+"${SOLVER_ARGS[@]}"} -p "$prefix" \
+    -c conda-forge -c bioconda "$@" || rc=$?
+  if (( rc == 137 || rc == 139 )); then
+    echo "FATAL: the solve for '$desc' was killed by the kernel (exit $rc) - it ran" >&2
+    echo "       out of memory, not out of packages. This is what a login node does" >&2
+    echo "       to a classic-solver bioconda solve. Two fixes, either is enough:" >&2
+    echo "         1) rerun this script inside an allocation (manual 4.2.1):" >&2
+    echo "              srun -p \$PART_CPU --qos=\$QOS_CPU -c 4 --mem=16G -t 2:00:00 --pty bash -l" >&2
+    echo "         2) install a leaner solver once, then rerun:" >&2
+    echo "              conda install -n base -c conda-forge conda-libmamba-solver" >&2
+    return "$rc"
+  fi
+  return "$rc"
 }
 
 mark_ok() { touch "$1/.setup_ok"; }

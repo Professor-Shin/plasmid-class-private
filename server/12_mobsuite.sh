@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=mobsuite
 #SBATCH --output=server/logs/mobsuite-%A_%a.out
 #SBATCH --error=server/logs/mobsuite-%A_%a.err

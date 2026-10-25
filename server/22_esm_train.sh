@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=esm-train
 #SBATCH --output=server/logs/esm-train-%j.out
 #SBATCH --error=server/logs/esm-train-%j.err
