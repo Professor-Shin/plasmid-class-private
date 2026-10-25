@@ -1,14 +1,23 @@
-# Pinned to the versions recorded in baseline/results/environment.json so the
-# server reproduces the laptop's numbers exactly. torch is NOT listed here: it is
-# installed separately from a CUDA wheel index by 00_setup_envs.sh, because the
-# laptop build is torch==2.11.0+cpu and the server needs the CUDA build.
+# CU-AIM build of requirements-plasmid-ml.txt
+#
+# CU-AIM runs glibc 2.17 (manylinux2014). Several laptop pins only ship manylinux_2_28
+# wheels, so they are replaced by the newest release that installs here (marked "was").
+# Checked for: CPython 3.11, x86_64, manylinux2014, binary wheels only.
+#
+# This env therefore does NOT reproduce the laptop byte-for-byte (the laptop also ran
+# torch==2.11.0+cpu; the server runs torch==2.5.1+cu124 on GPU). Judge the regression
+# check against a tolerance, and keep `pip freeze` of this env next to the results.
+#
+# torch is installed separately, before this file:
+#   $E -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+# transformers 5.x needs torch >= 2.4 (it silently disables PyTorch below that), so 2.5.1 is fine.
 transformers==5.7.0
 tokenizers==0.22.2
 safetensors==0.7.0
-numpy==2.4.4
-pandas==3.0.2
-scikit-learn==1.8.0
-scipy==1.17.1
+numpy==2.2.6          # was 2.4.4
+pandas==2.3.2         # was 3.0.2  <- MAJOR version change, see notes
+scikit-learn==1.7.2   # was 1.8.0
+scipy==1.16.3         # was 1.17.1
 PyYAML==6.0.3
 biopython==1.87
 joblib==1.5.3
