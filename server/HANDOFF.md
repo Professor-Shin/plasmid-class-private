@@ -104,3 +104,29 @@ job graph:
 `C:\Users\USER\.claude\projects\d--senior-project\8674eba7-b572-4328-b3b2-3ea800ea7742.jsonl`
 ก็อปไปวางที่ path เดียวกันบนเครื่องใหม่ (+ โฟลเดอร์ `memory/`) แล้ว `claude --resume` ได้ แต่ path
 โปรเจกต์ต้องตรงกันและห้ามเปิด 2 เครื่องพร้อมกัน — ส่วนใหญ่ไม่จำเป็น handoff doc นี้พอ
+
+## ค่าจริงของ CU-AIM ที่ probe ยืนยันแล้ว (2026-10-26)
+
+| | ค่า |
+|---|---|
+| account / user | `g_naruemon` / `naruemonp` |
+| partition | `cpu`, `gpu`, `interactive-cpu`, `interactive-gpu` |
+| QoS ที่บัญชีมี | `cpu40h`, `gpu10gh`, `gpu20gh`, `gpu40g`, `gpu40g24m`, `interactive-gpu` (**ไม่มี** `interactive-cpu`) |
+| `cpu40h` | 40 CPU / 1 TB / **4 วัน** |
+| `gpu40g` | 16 CPU / 1×7g.40gb / 64 GB / **8 ชั่วโมง** ← คู่มือเขียน 8 วัน **ผิด** |
+| `gpu10gh` | 16 CPU / 1×2g.10gb / 64 GB / **4 วัน** (ทางเลือกเมื่องานยาวเกิน 8 ชม.) |
+| `MaxArraySize` | 1001 (ต้องการ ≥116 ✓) |
+| module ที่มี | `Anaconda3/2021.11` (conda 4.x, **ไม่มี libmamba**), `CUDA/11.8.0` (ไม่มี 12.x), `Apptainer/1.3.2`, `/usr/bin/singularity` |
+| `mamba` | ไม่มีในระบบ → ลง micromamba ใน `$PROJECT/bin` (MANUAL ขั้น 2) |
+| node | cpu: `cuaim-fat-[01-02]` (72+ CPU, 690 GB) · gpu: `cuaim-dgx-01` (A100 MIG 7g.40gb×5, 3g.20gb×6) |
+| เน็ตจาก login node | zenodo / huggingface / anaconda ได้ครบ ✓ |
+| พื้นที่ | `/data` เหลือ 914 TB ไม่มี quota ต่อ dir |
+
+กับดักเพิ่ม:
+9. **ค่าของเครื่องอยู่ใน `server/env.local.sh`** (gitignore) ไม่ใช่ `env.sh` — `git pull` จะไม่ชน
+10. **`env.sh` ใช้ `: "${VAR:=...}"`** ค่าที่ export ค้างใน shell จะไม่ถูกทับเมื่อ source ซ้ำ
+    → `unset` ก่อน หรือเปิด shell ใหม่
+11. **`CUAIM_ACCOUNT` ว่าง ≠ ไม่ใส่** — `--account=` ว่างเปล่า Slurm ปฏิเสธ
+12. **push จากเซิร์ฟเวอร์ไม่ได้** (credential ในบัญชีร่วมเป็นของ user `nanghtet` อ่านได้เขียนไม่ได้
+    และไม่ควรเอา token ตัวเองไปวาง) ให้ commit บนเซิร์ฟเวอร์ แล้วดึงจากเครื่องตัวเองด้วย
+    `git fetch ssh://naruemonp@161.200.107.77/<PROJECT path> main:<branch>` แล้ว push จากเครื่องนั้น

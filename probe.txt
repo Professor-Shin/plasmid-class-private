@@ -1,0 +1,396 @@
+CU-AIM probe | user=naruemonp host=cuaim-fat-01.cuaim.hpc date=2026-10-26T05:47:02+0700
+
+######## 1. account, group and QoS (CU-AIM helper commands) ########
+$ check_qos
+  sacctmgr show qos format=name%15,MaxTRESPU%90,MaxWall
+             Name                                                                                  MaxTRESPU     MaxWall 
+  --------------- ------------------------------------------------------------------------------------------ ----------- 
+           normal                                                                                                        
+            chics                                                                                                        
+           ekapol                                                                                                        
+         voraphoj                                                                                                        
+         pornchai                                                                                                        
+           thanac                                                                                                        
+            cuaim                                                                                                        
+           gpu40g  cpu=16,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=1,mem=64G    08:00:00 
+           gpu20g   cpu=8,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=1,gres/gpu:7g.40gb=0,mem=32G    08:00:00 
+           gpu10g   cpu=4,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=1,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=0,mem=16G  4-00:00:00 
+            gpu5g    cpu=2,gres/gpu:1g.5gb=1,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=0,mem=8G  4-00:00:00 
+            cpu32                                                                              cpu=32,mem=8G  4-00:00:00 
+            cpu16                                                                              cpu=16,mem=8G  4-00:00:00 
+             cpu8                                                                               cpu=8,mem=8G  4-00:00:00 
+             cpu4                                                                               cpu=4,mem=8G  4-00:00:00 
+           cpu24h                                                                              cpu=24,mem=1T  4-00:00:00 
+            ngs16                                                                             cpu=16,mem=96G  8-00:00:00 
+             ngs8                                                                              cpu=8,mem=48G  8-00:00:00 
+       studentgpu    cpu=2,gres/gpu:1g.5gb=1,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=0,mem=8G  2-00:00:00 
+       studentcpu                                                                              cpu=4,mem=16G  2-00:00:00 
+  interactive-cpu                                                                               cpu=2,mem=8G    02:00:00 
+  interactive-gpu   cpu=4,gres/gpu:1g.5gb=1,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=0,mem=16G    02:00:00 
+     alphafold-v1  cpu=16,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=4,gres/gpu:7g.40gb=0,mem=32G  8-00:00:00 
+          gpu10gh  cpu=16,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=1,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=0,mem=64G  4-00:00:00 
+          gpu20gh  cpu=16,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=1,gres/gpu:7g.40gb=0,mem=64G    08:00:00 
+           cpu40h                                                                              cpu=40,mem=1T  4-00:00:00 
+         gpu40g64 cpu=64,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=1,mem=128G    12:00:00 
+        gpu40g24m cpu=24,gres/gpu:1g.5gb=0,gres/gpu:2g.10gb=0,gres/gpu:3g.20gb=0,gres/gpu:7g.40gb=2,mem=128G    08:00:00 
+         web2c16g                                                                              cpu=2,mem=16G             
+    limit_job_cpu                                                                                                        
+  limit_job_inte+                                                                                                        
+$ check_group
+  sacctmgr show assoc format=account,user%15,GrpTRES%75,qos%40
+     Account            User                                                                     GrpTRES                                                                              QOS 
+  ---------- --------------- --------------------------------------------------------------------------- -------------------------------------------------------------------------------- 
+        root                                                                                                                                                                       normal 
+        root            root                                                                                                                                                       normal 
+       cuaim                                    gres/gpu:2g.10gb=2,gres/gpu:3g.20gb=2,gres/gpu:7g.40gb=4                                                                            cuaim 
+       cuaim           aumsp                                                                                                                                 cpu40h,interactive-cpu,ngs16 
+       cuaim            cgen                                                                                                                 cuaim,interactive-cpu,interactive-gpu,normal 
+       cuaim         chawanp                                                                                                      gpu20gh,gpu40g,gpu40g64,interactive-cpu,interactive-gpu 
+       cuaim           dhupb                                                                                                  cpu24h,cpu40h,gpu20g,gpu40g,interactive-cpu,interactive-gpu 
+       cuaim    digitalpatho                                                                                                         cpu24h,gpu20g,gpu40g,interactive-cpu,interactive-gpu 
+       cuaim         georgig                                                                                                                                                cpu32,gpu20gh 
+       cuaim   hathaichanokc                                                                                                  cpu40h,gpu20gh,gpu40g,interactive-cpu,interactive-gpu,ngs16 
+       cuaim          joyita                                                                                                         gpu20gh,gpu40g,interactive-cpu,interactive-gpu,ngs16 
+       cuaim          kantam                                                                                                                 cuaim,interactive-cpu,interactive-gpu,normal 
+       cuaim        korapint                                                                                                                 cuaim,interactive-cpu,interactive-gpu,normal 
+       cuaim        ktuntika                                                                                                          cpu24h,gpu20g,interactive-cpu,interactive-gpu,ngs16 
+       cuaim           malik                                                                                                          cpu32,gpu10g,gpu20g,interactive-cpu,interactive-gpu 
+       cuaim         mayppcy                                                                                                                      cpu24h,gpu20gh,gpu40g64,interactive-gpu 
+       cuaim       nattagitn                                                                                                               gpu20gh,gpu40g,interactive-cpu,interactive-gpu 
+       cuaim       nattavats                                                                                                               cpu24h,gpu20gh,interactive-cpu,interactive-gpu 
+       cuaim       nuttapong                                                                                                                        cuaim,interactive-cpu,interactive-gpu 
+       cuaim          parink                                                                                                                                          cuaim,gpu20g,gpu40g 
+       cuaim          pasitj                                                                                                                                          cuaim,gpu20g,gpu40g 
+       cuaim        peemai01                                                                                                                gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+       cuaim        peeranon                                                                                                   cpu24h,cpu8,gpu20gh,gpu40g,interactive-cpu,interactive-gpu 
+       cuaim         peerasu                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+       cuaim       piyatidar                                                                                                                                                 cpu24h,cpu32 
+       cuaim         raksitr                                                                                                  cpu8,gpu10gh,gpu20gh,gpu40g,interactive-cpu,interactive-gpu 
+       cuaim             roy                                                                                                                gpu10g,interactive-cpu,interactive-gpu,normal 
+       cuaim        sirasris                                                                             alphafold-v1,cpu24h,cpu40h,gpu10g,gpu20g,gpu20gh,gpu40g,gpu5g,interactive-cpu,i+ 
+       cuaim      supichayaa                                                                                                                 cuaim,interactive-cpu,interactive-gpu,normal 
+       cuaim        tanupatb                                                                                                                                         cpu4,interactive-cpu 
+       cuaim        techajir                                                                                                                 gpu20g,interactive-cpu,interactive-gpu,ngs16 
+       cuaim       thanakorn                                                                                                                       cpu24h,interactive-cpu,interactive-gpu 
+       cuaim      thanapornw                                                                                                             cpu24h,cpu8,interactive-cpu,interactive-gpu,ngs8 
+       cuaim          thanay                                                                                                                                        interactive-cpu,ngs16 
+   g_aisawan                                                                                                                                                                       normal 
+   g_aisawan        aisawanp                                                                                                                                       cpu24h,interactive-cpu 
+     g_arkom                                                                                                                                                                       normal 
+     g_arkom          arkomc                                                                                                                                        interactive-cpu,ngs16 
+    g_botany                                                                                                                                                                       normal 
+    g_botany      chontichap                                                                                                                                        interactive-cpu,ngs16 
+    g_botany       juthamasc                                                                                                                        interactive-cpu,interactive-gpu,ngs16 
+    g_botany        stangwan                                                                                                                                 cpu24h,interactive-cpu,ngs16 
+      g_cccn                                                                                                                                                                       normal 
+      g_cccn     anantaporns                                                                                                                                         interactive-cpu,ngs8 
+      g_cccn        anthipac                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+      g_cccn        arparpak                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn         cccnlab                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+      g_cccn      cchunharas                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+      g_cccn        chaipatc                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+      g_cccn      chattarinp                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn       kanathipj                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn         nithits                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn    punpunyawish                                                                                                                       cpu24h,interactive-cpu,interactive-gpu 
+      g_cccn     sedthapongc                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+      g_cccn      setthananj                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn          thitic                                                                                                                         cpu8,interactive-cpu,interactive-gpu 
+      g_cccn        waragonp                                                                                                                 cpu32,gpu20g,interactive-cpu,interactive-gpu 
+  g_chaiyab+                                                                                                                                                                       normal 
+  g_chaiyab+    archittaponn                                                                                                                                gpu20gh,interactive-cpu,ngs16 
+  g_chaiyab+        wirawits                                                                                                                                         interactive-cpu,ngs8 
+     g_chics                                                                                                                                                                        chics 
+     g_chics      natthananr                                                                                                   chics,gpu20g,gpu40g,interactive-cpu,interactive-gpu,normal 
+     g_chics    tpakornchote                                                                                                                 chics,interactive-cpu,interactive-gpu,normal 
+     g_cubig                                                                                                                                                                       normal 
+     g_cubig     kamollaktee                                                                                                                                      gpu20gh,interactive-gpu 
+     g_cubig       muktaphaa                                                                                                                                       gpu20g,interactive-gpu 
+     g_cubig      supanuchpt                                                                                                                                      gpu20gh,interactive-gpu 
+      g_cusb                                                                                                                                                                       normal 
+      g_cusb           kornc                                                                                                                        cpu16,interactive-cpu,interactive-gpu 
+      g_cusb         piriyaw                                                                                                                                        interactive-cpu,ngs16 
+  g_digital+                                                                                                                                                                       normal 
+  g_digital+        eedrobup                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+  g_digital+       namthongw                                                                                                                                                       normal 
+  g_digital+       taweelapc                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+  g_digital+      theeratchc                                                                                                                gpu20gh,gpu40g,gpu40g24m,interactive-gpu,ngs8 
+  g_digital+         yosnaic                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+      g_dodd                                                                                                                                                                       normal 
+      g_dodd       sermkiatl                                                                                                          cpu4,gpu20gh,gpu40g,interactive-cpu,interactive-gpu 
+     g_eidcc                                                                                                                                                                       normal 
+     g_eidcc       ananporns                                                                                                                              interactive-cpu,interactive-gpu 
+     g_eidcc           ifwaw                                                                                                                                       cpu24h,interactive-cpu 
+     g_eidcc       nuntanach                                                                                                                gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+     g_eidcc        parinyat                                                                                                               cpu24h,gpu20gh,interactive-cpu,interactive-gpu 
+     g_eidcc          peerah                                                                                                                 cpu24h,interactive-cpu,interactive-gpu,ngs16 
+     g_eidcc        skritcha                                                                                                                gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+     g_eidcc        tanawuts                                                                                                                                 cpu24h,interactive-cpu,ngs16 
+     g_eidcc    wittawin.wor                                                                                                                 cpu24h,interactive-cpu,interactive-gpu,ngs16 
+    g_ekapol                                                                                                                                                                       ekapol 
+    g_ekapol    ingkanisornp                                                                                                                      gpu20gh,gpu40g,gpu40g64,interactive-gpu 
+    g_ekapol      kanokphatj                                                                                                                                               gpu20gh,gpu40g 
+    g_ekapol          napatl                                                                                                                  cpu8,gpu10g,interactive-cpu,interactive-gpu 
+    g_ekapol      phollawatj                                                                                                                      gpu20gh,gpu40g,gpu40g64,interactive-gpu 
+    g_ekapol       praeradaw                                                                                                      gpu20gh,gpu40g,gpu40g64,interactive-cpu,interactive-gpu 
+    g_ekapol          tagons                                                                                                                                                      gpu20gh 
+    g_ekapol      thanaphums                                                                                                                     gpu20gh,gpu40g,gpu40g24m,interactive-gpu 
+    g_ekapol         thanitt                                                                                                                       gpu40g,interactive-cpu,interactive-gpu 
+  g_gradstu+                                                                                                                                                                       normal 
+  g_gradstu+        vitavata                                                                                                                  gpu5g,interactive-cpu,interactive-gpu,ngs16 
+     g_guest                                                                                                                                                                       normal 
+     g_guest        nattiyap                                                                                                                                        interactive-cpu,ngs16 
+     g_guest          pratch                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+   g_kanitha                                                                                                                                                                       normal 
+   g_kanitha        surapunt                                                                                                                                         interactive-cpu,ngs8 
+     g_kanok                                                                                                                                                                       normal 
+     g_kanok          kanokp                                                                                                                              interactive-cpu,interactive-gpu 
+     g_kanok        pelerona                                                                                                                              interactive-cpu,interactive-gpu 
+   g_kanphai                                                                                                                                                                       normal 
+   g_kanphai        kanphaiw                                                                                                         cpu24h,gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+  g_mahidol+                                                                               cpu=24,mem=1T                                                           cpu24h,interactive-cpu 
+  g_mahidol+            ceb1                                                                                                                                       cpu24h,interactive-cpu 
+  g_mahidol+            ceb2                                                                                                                                       cpu24h,interactive-cpu 
+  g_mahidol+            ceb3                                                                                                                                       cpu24h,interactive-cpu 
+  g_mdcu.mi+                                                                                                                                                                       normal 
+  g_mdcu.mi+          micro1                                                                                                         gpu10gh,gpu20g,interactive-cpu,interactive-gpu,ngs16 
+  g_mdcu.mi+          micro2                                                                                                                                                       normal 
+    g_mdcuit                                                                                                                                                                       normal 
+    g_mdcuit    rungtawatsuw                                                                                                                       gpu10gh,gpu20gh,gpu40g,interactive-gpu 
+    g_mdcuit         sorawid                                                                                                                                                         ngs8 
+    g_medgen                                                                                                                                                                       normal 
+    g_medgen      chureeratp                                                                                                                 gpu20g,interactive-cpu,interactive-gpu,ngs16 
+    g_medgen       student00                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student01                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student02                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student03                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student04                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student05                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student06                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student07                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student08                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student09                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student10                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student11                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student12                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+    g_medgen       student13                                                                                                            interactive-cpu,interactive-gpu,normal,studentcpu 
+  g_naruemon                                                                                                                                                                       normal 
+  g_naruemon       naruemonp                                                                                                      cpu40h,gpu10gh,gpu20gh,gpu40g,gpu40g24m,interactive-gpu 
+  g_naruemon      nunthawutc                                                                                                                                       gpu40g,interactive-gpu 
+  g_natthac+                                                                                                                                                                       normal 
+  g_natthac+        umapornl                                                                                                                                        interactive-cpu,ngs16 
+   g_nattiya                                                                                                                                                                       normal 
+   g_nattiya       maysoethu                                                                                                                                        interactive-cpu,ngs16 
+       g_nut                                                                                                                                                                       normal 
+       g_nut            nutn                                                                                                                 gpu20g,interactive-cpu,interactive-gpu,ngs16 
+    g_parath                                                                                                                                                                       normal 
+    g_parath            milo                                                                                                                         gpu10g,gpu20g,gpu40g,interactive-gpu 
+   g_phandee                                                                                                                                                                       normal 
+   g_phandee        parindal                                                                                                                                        interactive-cpu,ngs16 
+   g_phandee       saowapakh                                                                                                                                        interactive-cpu,ngs16 
+  g_pimpayao                                                                                                                                                                       normal 
+  g_pimpayao           ducnp                                                                                                                                        interactive-cpu,ngs16 
+  g_pinnaree                                                                                                                                                                       normal 
+  g_pinnaree       pinnareet                                                                                                                                        interactive-cpu,ngs16 
+   g_pokrath                                                                                                                                                                       normal 
+   g_pokrath      chanitchac                                                                                                                gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+   g_pokrath        pokrathh                                                                                                                                      gpu20gh,interactive-gpu 
+  g_pongsaw+                                                                                                                                                                       normal 
+  g_pongsaw+      pongsawatr                                                                                                                                        interactive-cpu,ngs16 
+      g_poon                                                                                                                                                                       normal 
+      g_poon            poon                                                                                                                       gpu40g,interactive-cpu,interactive-gpu 
+  g_pornchai                                                                                                                                                                     pornchai 
+  g_pornchai      jirachotek                                                                                                                       gpu10g,interactive-cpu,interactive-gpu 
+  g_pornchai      peeraphanc                                                                                                                gpu20gh,interactive-cpu,interactive-gpu,ngs16 
+  g_radiolo+                                                                                                                                                                       normal 
+  g_radiolo+     thanachartp                                                                                                                cpu16,gpu10gh,interactive-cpu,interactive-gpu 
+  g_roongru+                                                                                                                                                                       normal 
+  g_roongru+      saknarongs                                                                                                                                      gpu20gh,interactive-gpu 
+  g_sasipra+                                                                                                                                                                       normal 
+  g_sasipra+      sasiprapaa                                                                                                               cpu24h,gpu20gh,interactive-cpu,interactive-gpu 
+  g_solaphat                                                                                                                                                                       normal 
+  g_solaphat   tantonthunder                                                                                                                               gpu20gh,gpu40g,interactive-gpu 
+  g_stemcell                                                                                                                                                                       normal 
+  g_stemcell       pattarinn                                                                                                                                        interactive-cpu,ngs16 
+  g_stemcell          shannc                                                                                    cpu24h,gpu20gh,gpu40g,gpu5g,interactive-cpu,interactive-gpu,ngs8,web2c16g 
+   g_supansa                                                                                                                                                                       normal 
+   g_supansa       nattapakd                                                                                                                      gpu20gh,interactive-cpu,interactive-gpu 
+  g_suwatch+                                                                                                                                                                       normal 
+  g_suwatch+ suwatchareepor+                                                                                                                                        interactive-cpu,ngs16 
+  g_sysmicro                                                                                                                                                                       normal 
+  g_sysmicro         chbunma                                                                                                                                       cpu24h,interactive-cpu 
+  g_sysmicro        pavarets                                                                                                                                          cpu16,cpu24h,gpu10g 
+  g_sysmicro          pavitk                                                                                                         cpu40h,gpu10gh,interactive-cpu,interactive-gpu,ngs16 
+  g_sysmicro        suthidav                                                                                                                                                  cpu4,gpu10g 
+  g_sysmicro        suwalakc                                                                                                                                        interactive-cpu,ngs16 
+  g_sysmicro        vorthons                                                                                                                                          cpu24h,gpu20g,ngs16 
+    g_thanac                                                                                                                                                                       thanac 
+    g_thanac          thanac                                                                                                                       gpu20g,interactive-cpu,interactive-gpu 
+  g_thanyavi                                                                                                                                                                       normal 
+  g_thanyavi     suphakitsri                                                                                                         cpu16,gpu10gh,gpu40g,interactive-cpu,interactive-gpu 
+  g_voraphoj                                                           cpu=16,gres/gpu:3g.20gb=2,mem=64G                                                                         voraphoj 
+  g_voraphoj      korntharak                                                                                                                       gpu20g,interactive-cpu,interactive-gpu 
+  g_voraphoj       songthama                                                                                                                       gpu20g,interactive-cpu,interactive-gpu 
+  g_voraphoj       voraphojn                                                                                                                       gpu20g,interactive-cpu,interactive-gpu 
+     nattiya                                                                                                                                                                       normal 
+$ sacctmgr show assoc user=naruemonp format=account,user%15,qos%60
+     Account            User                                                          QOS 
+  ---------- --------------- ------------------------------------------------------------ 
+  g_naruemon       naruemonp      cpu40h,gpu10gh,gpu20gh,gpu40g,gpu40g24m,interactive-gpu 
+
+######## 2. partitions, nodes and GPU resources ########
+$ sinfo -o %.15R %.8D %.10m %.5c %7z %40G %N
+        PARTITION    NODES     MEMORY  CPUS S:C:T   GRES                                     NODELIST
+              cpu        2    690000+   72+ 4+:18+: (null)                                   cuaim-fat-[01-02]
+              gpu        1     860000   128 2:64:1  gpu:7g.40gb:5,gpu:3g.20gb:6              cuaim-dgx-01
+  interactive-cpu        2    690000+   72+ 4+:18+: (null)                                   cuaim-fat-[01-02]
+  interactive-gpu        1     860000   128 2:64:1  gpu:7g.40gb:5,gpu:3g.20gb:6              cuaim-dgx-01
+$ sinfo -h -o %R | sort -u   (partition names for PART_CPU / PART_GPU)
+  cpu
+  gpu
+  interactive-cpu
+  interactive-gpu
+$ sinfo -h -o %G | sort -u   (GRES strings for GRES_GPU)
+  gpu:7g.40gb:5,gpu:3g.20gb:6
+  (null)
+
+######## 3. scheduler limits (the Platon/MOB arrays need MaxArraySize >= 116) ########
+$ bash -c scontrol show config | grep -i -E "MaxArraySize|MaxJobCount|MaxSubmitJobs|DefMemPerCPU"
+  MaxArraySize            = 1001
+  MaxJobCount             = 10000
+
+######## 4. software modules ########
+$ bash -c module avail 2>&1 | tr "\t" "\n" | grep -i -E "anaconda|miniconda|cuda|singularity|apptainer|python" | sort -u
+     Anaconda3/2021.11                 (L,D)     PMIx/4.1.0-GCCcore-11.2.0        (D)    help2man/1.48.3-GCCcore-11.2.0    (D)
+     Apptainer/1.3.2                   (D)       Perl/5.34.0-GCCcore-11.2.0       (D)    hwloc/2.5.0-GCCcore-11.2.0        (D)
+     Autoconf/2.71-GCCcore-11.2.0      (D)       Python/3.9.6-GCCcore-11.2.0-bare        libarchive/3.5.1-GCCcore-11.2.0   (D)
+     Automake/1.16.4-GCCcore-11.2.0    (D)       Python/3.9.6-GCCcore-11.2.0      (D)    libevent/2.1.12-GCCcore-11.2.0    (D)
+     CUDA/11.8.0                       (D)       UnZip/6.0-GCCcore-11.2.0         (D)    libtool/2.4.6-GCCcore-11.2.0      (D)
+  conda        /data/utils/modules/easybuild/software/Anaconda3/2021.11/bin/conda
+  mamba        -- not found --
+  singularity  /usr/bin/singularity
+  apptainer    -- not found --
+  rsync        /usr/bin/rsync
+  git          /usr/bin/git
+  curl         /data/utils/modules/easybuild/software/Anaconda3/2021.11/bin/curl
+  wget         /usr/bin/wget
+
+######## 4b. system glibc  (DECIDES the torch version 00_setup_envs.sh installs) ########
+$ bash -c ldd --version | head -1
+  ldd (GNU libc) 2.17
+  -> glibc 2.17: torch capped at 2.5.1
+  pip manylinux tags this interpreter accepts (if a python is on PATH):
+$ bash -c python -m pip debug 2>/dev/null | grep -i manylinux | head -8 || echo "  (no python on PATH yet - checked again inside the env)"
+    cp39-cp39-manylinux_2_17_x86_64
+    cp39-cp39-manylinux2014_x86_64
+    cp39-cp39-manylinux_2_16_x86_64
+    cp39-cp39-manylinux_2_15_x86_64
+    cp39-cp39-manylinux_2_14_x86_64
+    cp39-cp39-manylinux_2_13_x86_64
+    cp39-cp39-manylinux_2_12_x86_64
+    cp39-cp39-manylinux2010_x86_64
+
+######## 5. storage and quota  (THE constraint: /data/home is small, do not use it) ########
+$ df -h /data/home /data/project /data/home/naruemonp
+  Filesystem      Size  Used Avail Use% Mounted on
+  data            1.4P  469T  914T  34% /data
+  data            1.4P  469T  914T  34% /data
+  data            1.4P  469T  914T  34% /data
+$ bash -c quota -s 2>/dev/null || echo "(no quota command)"
+$ project directories this account can see
+  drwxrwx---  9 root     aisawan         4096 Jun 13 03:50 /data/project/aisawan/
+  drwxrwx---  8 root     botany          4096 Oct 17 09:20 /data/project/botany/
+  drwxrwx--- 26 root     cccn            4096 Sep 17 13:07 /data/project/cccn/
+  drwxrwx---  2 root     chaiyaboot      4096 Jan 22  2026 /data/project/chaiyaboot/
+  drwxr-xr-x  8 chawanp  root            4096 Jun 26 15:48 /data/project/chawanp/
+  drwxrwx---  2 root     chics           4096 Jun 11  2022 /data/project/chics/
+  drwxrwx--- 28 root     chureeratp      4096 Feb  8  2026 /data/project/chureeratp/
+  drwxrwx--- 53 root     cuaim           4096 Aug 15 18:38 /data/project/cuaim/
+  drwxrwx---  2 root     cubig           4096 Jun 11  2022 /data/project/cubig/
+  drwxrwx---  3 root     cusb            4096 Sep 25  2024 /data/project/cusb/
+  drwxrwx---  4 root     digitalhealth   4096 Sep 24 09:07 /data/project/digitalhealth/
+  drwxrwx--- 10 root     eidcc           4096 Aug 29 13:35 /data/project/eidcc/
+  drwxrwx--- 13 root     ekapol          4096 Aug 27 22:07 /data/project/ekapol/
+  drwxrwx--- 14 raksitr  raksitr         4096 Oct 19 14:04 /data/project/genomicsai/
+  drwxrwx---  2 root     kanok           4096 Nov 12  2025 /data/project/kanok/
+  drwxrwx--- 13 root     kanphai         4096 Oct 12 13:14 /data/project/kanphai/
+  drwxrws---  4 root     kcmh-dodd       4096 Sep 22 13:36 /data/project/kcmh-dodd/
+  drwxrwx---  9 root     mahidol.ceb     4096 Aug 14 13:59 /data/project/mahidol.ceb/
+  drwxrwx---  2 root     mdcu.micro      4096 Apr 30 13:44 /data/project/mdcu.micro/
+  drwxrwx---  2 root     medgen          4096 Dec 16  2022 /data/project/medgen/
+  drwxrwx--- 12 root     naruemon        4096 Oct 19 04:15 /data/project/naruemon/
+  drwxrwx---  2 root     natthachai      4096 May 12 10:01 /data/project/natthachai/
+  drwxrwx---  2 root     nattiya         4096 Mar 11  2025 /data/project/nattiya/
+  drwxrwx---  4 root     nut             4096 Sep 16 17:20 /data/project/nut/
+  drwxrwx---  2 root     parath          4096 Mar 24  2024 /data/project/parath/
+  drwxrwx---  2 root     phandee         4096 Sep  7 19:26 /data/project/phandee/
+  drwxrwx---  2 root     pimpayao        4096 Oct 15 08:00 /data/project/pimpayao/
+  drwxrwx--- 10 root     pinnaree        4096 Apr 24  2025 /data/project/pinnaree/
+  drwxrwx---  2 root     pokrath         4096 Aug 28  2025 /data/project/pokrath/
+  drwxrwx---  2 root     pongsawatr      4096 Sep  3  2024 /data/project/pongsawatr/
+  drwxrwx---  5 root     pornchai        4096 Sep 19 15:15 /data/project/pornchai/
+  drwxrwxr-x  3 sirasris sirasris        4096 Nov  5  2025 /data/project/sirasris_shared/
+  drwxrwx---  2 root     solaphat        4096 Aug 28  2025 /data/project/solaphat/
+  drwxrwx---  8 root     stemcell        4096 Oct 23 12:44 /data/project/stemcell/
+  drwxrwx---  5 root     student         4096 Aug 15  2023 /data/project/student/
+  drwxrwx---  2 root     supansa         4096 Aug 17  2024 /data/project/supansa/
+  drwxrwx---  6 root     suwatchareeporn 4096 Dec 24  2025 /data/project/suwatchareeporn/
+  drwxrwx--- 17 root     sysmicro        4096 May 25 12:11 /data/project/sysmicro/
+  drwxrwx---  2 root     thanyavi        4096 May  8 20:01 /data/project/thanyavi/
+  drwxrwx--- 19 root     voraphoj        4096 Dec 27  2023 /data/project/voraphoj/
+$ writable candidates under /data/project
+  WRITABLE  /data/project/naruemon/
+  WRITABLE  /data/project/naruemon/kmm/
+  WRITABLE  /data/project/naruemon/nang/
+  WRITABLE  /data/project/naruemon/peeradon_drought/
+  WRITABLE  /data/project/naruemon/peeradon_kmm_lib/
+  WRITABLE  /data/project/naruemon/peeradon-s_droughtConv/
+  WRITABLE  /data/project/naruemon/phichaphop-r_gcri/
+  WRITABLE  /data/project/naruemon/phichaphop-r_nus/
+  WRITABLE  /data/project/naruemon/ratchanon-p_cv/
+  WRITABLE  /data/project/naruemon/ratchanon-p_gc-ims/
+  WRITABLE  /data/project/naruemon/siwakorn-s_plasmid_class/
+
+  This plan needs roughly 30 GB:
+    dataset (rsync)   2.5 GB      Platon DB        2.8 GB
+    MOB-suite DB      ~4 GB       ESM embeddings   3-5 GB
+    conda envs        ~8 GB       logs/outputs     ~1 GB
+    embeddings        5.2 GB (measured: 8.79 M ORFs x 320, float16)
+  Total about 24 GB. If free space is under that, use the fallback ladder in
+  MANUAL.md appendix C (drop ESM shards after merge, then Platon DB).
+
+######## 6. internet access from the login node (databases are downloaded here) ########
+  https://zenodo.org               HTTP 200
+  https://huggingface.co           HTTP 200
+  https://conda.anaconda.org       HTTP 302
+
+######## 7. GPU driver and its CUDA version (picks the torch wheel's cuXXX tag) ########
+  (a login node normally has NO GPU - 'command not found' or 'no devices' here
+   is expected; the driver's CUDA version is what 00_setup_envs.sh matches)
+$ nvidia-smi
+  server/probe_server.sh: line 15: nvidia-smi: command not found
+  if blank above, grab the driver from a short GPU allocation:
+    srun -p gpu --qos=interactive-gpu --gres=gpu:1g.5gb:1 -t 2 \
+         --pty nvidia-smi | grep 'CUDA Version'
+
+######## 8. this account's recent Slurm history ########
+$ bash -c sacct -u "$(whoami)" --start=$(date -d "7 days ago" +%F) -o JobID,JobName%20,State,Elapsed,NodeList 2>/dev/null | head -20
+  JobID                     JobName      State    Elapsed        NodeList 
+  ------------ -------------------- ---------- ---------- --------------- 
+  408603                       bash     FAILED   00:00:28    cuaim-dgx-01 
+  408603.exte+               extern  COMPLETED   00:00:28    cuaim-dgx-01 
+  408603.0                     bash     FAILED   00:00:28    cuaim-dgx-01 
+  411257                       bash    RUNNING   01:08:15    cuaim-fat-01 
+  411257.exte+               extern    RUNNING   01:08:15    cuaim-fat-01 
+  411257.0                     bash    RUNNING   01:08:15    cuaim-fat-01 
+
+######## SUMMARY - copy these into server/env.sh ########
+  PROJECT=         <a writable /data/project path from section 5>
+  CUAIM_ACCOUNT=   <the account column from check_group / sacctmgr, section 1>
+  PART_CPU=        <cpu-ish partition from section 2>   QOS_CPU=cpu40h
+  PART_GPU=        <gpu partition from section 2>       QOS_GPU=gpu40g
+  GRES_GPU=        <e.g. gpu:7g.40gb:1, from section 2>
+  MODULE_CONDA=    <Anaconda3 or the name shown in section 4>
+  MODULE_CUDA=     <CUDA/11.8.0 or the name shown in section 4>
+
+Then: 1) edit server/env.sh   2) bash server/00_setup_envs.sh   3) bash server/01_sync_from_laptop.sh (on the laptop)

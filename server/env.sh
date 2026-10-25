@@ -9,6 +9,19 @@
 #   partitions   section 3.3
 #   modules      section 4.4
 #   storage      section 3.1  (/data/home has a small quota - do not use it)
+#
+# PER-MACHINE VALUES GO IN server/env.local.sh, NOT HERE. That file is
+# gitignored, so `git pull` never conflicts with the values this machine needs:
+#
+#   cp server/env.local.sh.example server/env.local.sh   # then edit it
+#
+# Everything below is a default of the form : "${VAR:=...}", which means "use
+# this only if VAR has no value yet" - so env.local.sh (and any VAR=... on the
+# command line) wins. The same rule has one sharp edge: a variable already
+# exported in your shell keeps its OLD value when you re-source this file after
+# editing it. Open a fresh shell, or `unset` the variable first.
+HERE_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[[ -r "$HERE_ENV/env.local.sh" ]] && source "$HERE_ENV/env.local.sh"
 
 # ---------------------------------------------------------------- identity ----
 # Assigned project directory. The whole repository lives here, keeping the same

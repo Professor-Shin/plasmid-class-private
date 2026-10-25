@@ -133,26 +133,35 @@ du -sh "$PROJECT"                               # ~250 MB (โค้ด + CSV �
 > ใช้ Personal Access Token หรือ `gh auth login` ก็ได้ อีกทางคือ clone บนโน้ตบุ๊กแล้ว
 > `rsync -av --exclude .git` ขึ้นไป แต่การ clone ตรงสะดวกกว่าตอนจะ `git pull` อัปเดตภายหลัง
 
-**แก้ `server/env.sh`** ด้วยค่าที่จดไว้จากขั้น 1:
+**กรอกค่าของเครื่องลง `server/env.local.sh`** — **ไม่ใช่** `env.sh` ไฟล์ `env.local.sh`
+ถูก gitignore ไว้ `git pull` จึงไม่เคยชนกับค่าของคุณ:
 
 ```bash
-nano server/env.sh      # หรือเปิดใน VS Code
+cp server/env.local.sh.example server/env.local.sh
+nano server/env.local.sh        # หรือเปิดใน VS Code
 ```
 
-แก้ 7 ค่าในหัวข้อ identity/Slurm/modules (ตรงกับ 7 แถวในตารางขั้น 1):
+ใส่แค่ 1-2 บรรทัดนี้ก็พอ ที่เหลือมีค่าตั้งต้นที่ตรงกับ CU-AIM อยู่แล้ว:
 
 ```bash
-: "${PROJECT:=/data/project/naruemon/siwak_s_plasmid}"     # <-- ของคุณ
-: "${CUAIM_ACCOUNT:=naruemon}"                             # <-- ของคุณ
-: "${PART_CPU:=cpu}"
-: "${PART_GPU:=gpu}"
-: "${GRES_GPU:=gpu:7g.40gb:1}"
-: "${MODULE_CONDA:=Anaconda3}"
-: "${MODULE_CUDA:=CUDA/11.8.0}"
+export PROJECT="/data/project/<group>/<your_dir>"
+export CUAIM_ACCOUNT="g_<group>"      # จาก check_group — ถ้าไม่แน่ใจ comment ทิ้งไว้
 ```
 
-> `QOS_CPU` (`cpu40h`) และ `QOS_GPU` (`gpu40g`) มีค่าตั้งต้นให้แล้ว — แก้เฉพาะเมื่อ
-> `check_qos` ในขั้น 1 บอกว่าบัญชีได้ชื่อ QoS อื่น
+> **`CUAIM_ACCOUNT` ว่างกับไม่ใส่ ไม่เหมือนกัน** ถ้า comment บรรทัดนั้นไว้ สคริปต์จะไม่ส่ง
+> `--account` เลย (Slurm ใช้ account ปริยาย = ถูกต้อง) แต่ถ้าใส่เป็นค่าว่าง `--account=`
+> Slurm จะตอบ `Invalid account or account/partition combination specified`
+
+> `QOS_CPU` (`cpu40h`) / `QOS_GPU` (`gpu40g`) / `PART_CPU` (`cpu`) / `PART_GPU` (`gpu`) /
+> `GRES_GPU` (`gpu:7g.40gb:1`) / `MODULE_CONDA` (`Anaconda3`) / `MODULE_CUDA` (`CUDA/11.8.0`)
+> ยืนยันกับ CU-AIM แล้วว่าตรง — override ใน `env.local.sh` เฉพาะเมื่อ probe บอกต่าง
+
+> **⚠️ กับดัก: ค่าค้างใน shell** `env.sh` ใช้รูป `: "${VAR:=default}"` = *"ใช้ค่านี้ถ้า VAR
+> ยังไม่มีค่า"* ถ้าคุณ `source` ไปแล้วรอบหนึ่ง แล้วแก้ไฟล์ แล้ว `source` ซ้ำใน shell เดิม
+> **ค่าเก่าจะค้างอยู่** เปิด shell ใหม่ หรือ `unset` ตัวนั้นก่อน:
+> ```bash
+> unset TIME_EMBED TIME_TRAIN CUAIM_ACCOUNT && source server/env.sh
+> ```
 
 > ส่วนที่เหลือของ `env.sh` **อย่าลบ** โดยเฉพาะบล็อก `CONDA_ENVS_DIRS` / `HF_HOME` / `TMPDIR`
 > ที่ย้าย cache ออกจาก `/data/home` ซึ่งโควต้าเล็กมาก — ถ้าไม่มีบรรทัดนั้น `conda create`
@@ -664,7 +673,9 @@ PLATON_DB_URL=<url ใหม่> bash server/00_setup_envs.sh
 - [ ] พื้นที่ `/data/project` ≥ 24 GB
 - [ ] `check_qos` มี `cpu40h` และ `gpu40g` (หรือแก้ `env.sh` ตามที่มี)
 - [ ] `MaxArraySize` ≥ 116
-- [ ] แก้ `env.sh` แล้ว (`PROJECT`, `CUAIM_ACCOUNT`, partition, GRES, module)
+- [ ] สร้าง `server/env.local.sh` แล้ว (`PROJECT` + `CUAIM_ACCOUNT`) และ `source server/env.sh`
+      แล้ว `echo` ออกมาถูกทุกตัว (ระวังค่าค้างใน shell)
+- [ ] `TIME_EMBED` / `TIME_TRAIN` ไม่เกิน `MaxWall` ของ QoS ที่ `check_qos` บอก
 - [ ] `00_setup_envs.sh` จบครบ 6/6
 - [ ] `01_sync_from_laptop.sh` ส่งครบ
 - [ ] `02_verify_data.sh` ผ่านทั้ง 3 ข้อ (16,944 fragments / 116 assemblies)
