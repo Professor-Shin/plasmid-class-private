@@ -183,8 +183,11 @@ create_env "$ENV_MOB" "mobsuite" mob_suite
 banner "4/6  Platon database"
 # Platon's database is versioned separately from the tool and an older Platon
 # cannot read a newer database, so the tool version is recorded next to the DB.
-if [[ -d "$PLATON_DB" ]] && [[ -n "$(ls -A "$PLATON_DB" 2>/dev/null)" ]]; then
-  echo "  SKIP  $PLATON_DB already populated ($(du -sh "$PLATON_DB" | cut -f1))"
+# A sentinel, not "the directory has something in it": a download or extraction
+# that died half way leaves plenty of files behind, and skipping over that is how
+# a broken database reaches the array jobs.
+if [[ -f "$PLATON_DB/.setup_ok" ]]; then
+  echo "  SKIP  $PLATON_DB already populated and verified ($(du -sh "$PLATON_DB" | cut -f1))"
 else
   mkdir -p "$PLATON_DB"
   TARBALL="$PROJECT/tmp/platon-db.tar.gz"
@@ -200,6 +203,7 @@ else
   fi
   mv "$SRC"/* "$PLATON_DB"/
   rm -rf "$TARBALL" "$SRC"
+  mark_ok "$PLATON_DB"
 fi
 PLATON_VER="$("$ENV_PLATON/bin/platon" --version 2>&1 | head -1 || echo unknown)"
 {
@@ -214,8 +218,8 @@ echo "        database in env.sh, check the project GitHub for the current datab
 echo "        and re-run with PLATON_DB_URL=<new url>."
 
 banner "5/6  MOB-suite database"
-if [[ -d "$MOB_DB" ]] && [[ -n "$(ls -A "$MOB_DB" 2>/dev/null)" ]]; then
-  echo "  SKIP  $MOB_DB already populated ($(du -sh "$MOB_DB" | cut -f1))"
+if [[ -f "$MOB_DB/.setup_ok" ]]; then
+  echo "  SKIP  $MOB_DB already populated and verified ($(du -sh "$MOB_DB" | cut -f1))"
 else
   mkdir -p "$MOB_DB"
   # mob_init downloads and indexes the databases itself. The flag name has changed
@@ -227,13 +231,21 @@ else
   done
   if [[ -n "$DBFLAG" ]]; then
     echo "  running: mob_init $DBFLAG $MOB_DB"
-    "$ENV_MOB/bin/mob_init" "$DBFLAG" "$MOB_DB"
+    # mob_init shells out to makeblastdb, blastn and mash BY BARE NAME, so the
+    # environment's bin must be on PATH - calling mob_init by absolute path is
+    # not enough. Without this it downloads the 450 MB archive, fails while
+    # building the indexes, and reports it as "check your internet connection"
+    # (the real errno is EACCES on 'makeblastdb').
+    PATH="$ENV_MOB/bin:$PATH" "$ENV_MOB/bin/mob_init" "$DBFLAG" "$MOB_DB"
+    mark_ok "$MOB_DB"
   else
     echo "  mob_init exposes no database-directory flag; using the manual archive"
     TARBALL="$PROJECT/tmp/mob-db.tar.gz"
     curl -fL --retry 3 --retry-delay 5 -C - -o "$TARBALL" "$MOB_DB_URL"
     tar -xzf "$TARBALL" -C "$MOB_DB" --strip-components=1
     rm -f "$TARBALL"
+    # Deliberately NOT marked done: a hand-extracted archive has no BLAST/mash
+    # indexes, so the next run should try mob_init again.
     echo "  NOTE: a manually extracted database may still need mob_init to build"
     echo "        its BLAST/mash indexes. 13_smoke_tools.sh will catch it if so."
   fi
