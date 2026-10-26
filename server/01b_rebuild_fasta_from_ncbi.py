@@ -364,6 +364,13 @@ def main() -> int:
         print("    NOTE: set NCBI_EMAIL=<you@example.com>; NCBI asks for a contact address")
     print()
 
+    summary_csv = root / "dataset pipeline1" / "reports" / "dataset_summary_mixed.csv"
+    summary: dict[str, dict] = {}
+    if summary_csv.is_file():
+        with summary_csv.open(newline="", encoding="utf-8") as fh:
+            summary = {r["split"]: r for r in csv.DictReader(fh)}
+        print(f"  dataset_summary_mixed.csv  per-split fragment and base totals to match")
+
     replicons = load_replicons(replicons_csv)
     print(f"  replicons.csv  {len(replicons):,} records with recorded sha256")
     frags = load_fragments(dataset_dir, splits)
@@ -463,6 +470,7 @@ def main() -> int:
         print(f"\n--- {split}: {len(frags[split]):,} fragments -> {out.name}")
         current_acc, current_seq = None, ""
         bad: list[str] = []
+        bases_written = 0
         with tmp.open("w", encoding="utf-8", newline="\n") as fh:
             for i, row in enumerate(frags[split], 1):
                 acc = row["sequence_id"]
@@ -497,6 +505,7 @@ def main() -> int:
                     continue
 
                 write_fasta_record(fh, row["fragment_id"], piece)
+                bases_written += len(piece)
                 checked += 1
 
         if bad:
@@ -513,6 +522,20 @@ def main() -> int:
         tmp.replace(out)
         size = out.stat().st_size
         print(f"    wrote {out.name}  {size / 1e6:.0f} MB  ({len(frags[split]):,} records)")
+
+        # One more check, on the whole split at once: reports/dataset_summary_mixed.csv
+        # is the table the published numbers were computed from, so its fragment
+        # count and total_bp are what this file has to add up to.
+        exp = summary.get(split)
+        if exp:
+            want_n, want_bp = int(exp["fragments"]), int(exp["total_bp"])
+            if (len(frags[split]), bases_written) != (want_n, want_bp):
+                print(f"\nFATAL: {split} does not add up to the published summary:\n"
+                      f"       fragments {len(frags[split]):,} vs {want_n:,}\n"
+                      f"       bases     {bases_written:,} vs {want_bp:,}", file=sys.stderr)
+                return 1
+            print(f"    matches reports/dataset_summary_mixed.csv: {want_n:,} fragments, "
+                  f"{want_bp:,} bp")
 
     print(f"\n=== rebuilt {checked:,} fragments; {downloaded:,} replicons downloaded "
           f"in {(time.time() - t0) / 60:.1f} min")
