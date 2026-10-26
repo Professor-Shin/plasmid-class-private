@@ -83,9 +83,19 @@ job graph:
 - [x] glibc/torch fix ยืนยันบนเครื่องจริง (`torch 2.5.1+cu124` โหลดได้)
 - [x] ตรวจ MANUAL เทียบ `survival-manual-cuaim.pdf` + แก้ที่ขัดกัน (login node / `-l` /
       MODULE_CUDA / เหตุผล singularity)
-- [ ] `00_setup_envs.sh` รันครบ 6/6 บนเซิร์ฟเวอร์  ← **กำลังอยู่ขั้นนี้**
-      ติดที่ 3/6 `mobsuite`: solve ถูก OOM-kill บน login node → รันใหม่ใน allocation
-      (env 1/6, 2/6 ที่ผ่านแล้วจะถูก skip ด้วย `.setup_ok` ไม่ต้องเริ่มใหม่)
+- [x] `00_setup_envs.sh` รันครบ **6/6** (2026-10-26 07:57) — envs `plasmid-ml` 5.8G /
+      `platon` 1.1G / `mobsuite` 5.0G, DB `platon` 2.8G / `mobsuite` 2.9G, ESM weights 160M
+      - ทางที่ติดและวิธีแก้: OOM-kill ตอน solve บน login node → ใช้ micromamba ใน
+        `$PROJECT/bin`; `mob_init` fail เพราะ `$ENV_MOB/bin` ไม่อยู่ใน PATH (commit `b72cd7a`)
+      - **ค้าง: ลบ env `plasmid-ml-py311` (5.3 GB) ที่เผลอสร้างด้วยมือ** — ดูกับดักข้อ 3
+- [ ] sync dataset + `02_verify_data.sh` ผ่าน  ← **กำลังอยู่ขั้นนี้**
+      **เครื่อง Linux (`/media/siwakorn/YUTHAPONG/plasmid-class-private`) ทำขั้นนี้ไม่ได้**
+      มีแค่ CSV ที่ tracked — ขาด `train/validation/test.fasta` (~2.4 GB) และ
+      `esm2-attention/cache_mixed` (42 MB) ซึ่งเป็น generated data ที่ gitignore ไว้
+      → ต้องรันจากโน้ตบุ๊ก Windows `d:/senior project` ที่ผลิตข้อมูล
+      → ถ้าเครื่องนั้นใช้ไม่ได้: CSV มี `sequence_id` (accession มี version) + `start`/`end`
+        ครบทุก fragment จึง refetch จาก NCBI ทีละ accession แล้วตัดใหม่ได้ byte-identical
+        (accession.version เป็น immutable — ต่างจากการรัน step01/02 ใหม่ที่จะสุ่ม genome ชุดใหม่)
 - [ ] sync dataset + `02_verify_data.sh` ผ่าน
 - [ ] `submit_all.sh` + ได้ `report_*.md`
 
