@@ -80,3 +80,6 @@ tmp/
 
 # per-machine CU-AIM values (see server/env.local.sh.example)
 server/env.local.sh
+
+# rebuild path (server/01b_rebuild_fasta_from_ncbi.py)
+server/dataset_md5.origin.txt

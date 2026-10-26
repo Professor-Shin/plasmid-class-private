@@ -269,6 +269,42 @@ bash server/01_sync_from_laptop.sh
 > ถ้า VPN หลุดกลางทางต้องรันใหม่ทั้งหมด ถ้าเน็ตไม่นิ่งแนะนำติดตั้ง rsync (MSYS2 `pacman -S rsync`)
 > แล้วรันอีกครั้ง — `rsync` มี `--partial` ต่อจากที่ค้างได้
 
+### ขั้น 3 ทางเลือก — ไม่มีเครื่องที่ผลิตข้อมูลแล้ว
+
+ถ้าโน้ตบุ๊กที่ generate dataset ใช้ไม่ได้ (FASTA ~2.4 GB เป็น generated data ที่ gitignore ไว้
+จึงไม่มีใน clone ใหม่) ให้สร้าง FASTA ขึ้นใหม่บนเซิร์ฟเวอร์จากสิ่งที่**อยู่ใน git อยู่แล้ว**:
+
+```bash
+cd "$PROJECT" && source server/env.sh
+export NCBI_EMAIL="<your-email>"        # NCBI ขอ contact address
+# export NCBI_API_KEY=<key>             # ถ้ามี จะได้ 10 req/s แทน 3 req/s
+
+python3 server/01b_rebuild_fasta_from_ncbi.py --dry-run    # ดูแผนก่อน
+python3 server/01b_rebuild_fasta_from_ncbi.py              # ~2.4 GB, resume ได้
+```
+
+**ทำไมได้ dataset ชุดเดิม ไม่ใช่ชุดใหม่** — fragment ถูกกำหนดครบด้วย `(sequence_id, start, end)`
+ซึ่ง CSV ที่ tracked มีทุกแถว และ `sequence_id` เป็น accession **ระบุ version** (`NC_007949.1`)
+ซึ่ง NCBI ไม่แก้ย้อนหลัง (แก้แล้วขึ้น version ใหม่) ต่างจากการรัน step01/02 ใหม่ที่จะไปสุ่ม
+genome ชุดใหม่จาก `assembly_summary.txt` ที่เปลี่ยนทุกสัปดาห์
+
+**ตรวจสองชั้นก่อนเขียนไฟล์** ทั้งคู่เป็นค่าที่บันทึกไว้ตอนสร้าง dataset ครั้งแรก:
+
+1. ทุก replicon ที่ดาวน์โหลดมาต้องได้ `sha256` ตรงกับคอลัมน์ `sequence_sha256` ใน
+   `metadata/replicons.csv` — ถ้าไม่ตรง **หยุดทันที** (record เปลี่ยนที่ NCBI)
+2. ทุก fragment ที่ตัดออกมาต้องได้ `length` + `gc_content` + `non_acgt_fraction` ตรงกับ
+   แถวของมันใน split CSV
+
+> **สิ่งที่ขาดไปและซื้อคืนไม่ได้: `esm2-attention/cache_mixed`** (42 MB — embedding ที่
+> โน้ตบุ๊ก cache ไว้) `22_esm_train` จะข้าม regression check เองพร้อมขึ้นข้อความบอก
+> ส่วน component equivalence checks ยังรันครบ แปลว่าการพอร์ตโค้ดยังถูกตรวจ แต่จะไม่มี
+> การเทียบกับตัวเลขที่ตีพิมพ์ — ถ้าเจอโน้ตบุ๊กเดิมภายหลัง ส่งแค่โฟลเดอร์นี้ขึ้นมาแล้ว
+> `sbatch server/22_esm_train.sh` ซ้ำได้
+
+> `server/dataset_md5.txt` ที่เส้นทางนี้สร้างให้ **ไม่ใช่**หลักฐานการโอนไฟล์ (มันคือ checksum
+> ของไฟล์ที่เพิ่ง rebuild เอง) รายละเอียดอยู่ใน `server/dataset_md5.origin.txt` ที่สคริปต์เขียนไว้
+> — ข้อ 2 และ 3 ของ `02_verify_data.sh` ยังมีความหมายเต็มเหมือนเดิม
+
 ---
 
 ## ขั้น 4 — ตรวจว่าข้อมูลมาครบ
