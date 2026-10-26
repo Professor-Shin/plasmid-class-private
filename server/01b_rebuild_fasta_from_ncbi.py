@@ -227,15 +227,35 @@ def read_gz_fasta(path: Path):
         yield rid, "".join(buf)
 
 
+def load_recorded_urls(path: Path) -> dict[str, str]:
+    """The URL step02 actually downloaded each assembly from, if it is on hand.
+
+    metadata/download_status.csv is tracked, so the exact URL and the fact that
+    its NCBI md5 checksum was verified at build time travel with the repository.
+    Using it beats deriving the path, even though the two agree for all 500.
+    """
+    if not path.is_file():
+        return {}
+    out = {}
+    with path.open(newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            url = (r.get("url") or "").strip()
+            if url:
+                out[r["assembly_accession"]] = url
+    return out
+
+
 def fetch_assembly(assembly_accession: str, source_fasta: str, wanted: dict[str, dict],
-                   cache_dir: Path, asm_dir: Path, keep_assembly: bool) -> tuple[set[str], int]:
+                   cache_dir: Path, asm_dir: Path, keep_assembly: bool,
+                   recorded_url: str | None = None) -> tuple[set[str], int]:
     """Download one assembly and cache every wanted record it verifies.
 
     Returns (accessions written, bytes downloaded). A record whose sha256 does
     not match replicons.csv is left out, so the caller falls back to efetch and
     the mismatch is reported there rather than silently accepted here.
     """
-    url, base = assembly_url(assembly_accession, source_fasta)
+    derived, base = assembly_url(assembly_accession, source_fasta)
+    url = recorded_url or derived
     blob = asm_dir / base
     downloaded = 0
     if not blob.is_file():
@@ -385,6 +405,12 @@ def main() -> int:
             key = (meta["assembly_accession"], meta["source_fasta"])
             by_asm.setdefault(key, {})[acc] = meta
 
+        recorded = load_recorded_urls(root / "dataset pipeline1" / "data" / "metadata"
+                                      / "download_status.csv")
+        if recorded:
+            print(f"  download_status.csv  {len(recorded):,} recorded assembly URLs "
+                  "(used instead of deriving the FTP path)")
+
         todo = sorted(by_asm)
         if args.smoke:
             todo = todo[: args.smoke]
@@ -399,7 +425,8 @@ def main() -> int:
             asm_acc, src = key
             try:
                 done, nbytes = fetch_assembly(asm_acc, src, by_asm[key], cache_dir,
-                                              asm_dir, args.keep_assembly_cache)
+                                              asm_dir, args.keep_assembly_cache,
+                                              recorded.get(asm_acc))
             except FileNotFoundError:
                 print(f"    {asm_acc}: not on the FTP site any more -> efetch fallback")
                 unresolved.extend(by_asm[key])
