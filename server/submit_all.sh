@@ -75,12 +75,33 @@ if [[ "$WHAT" == "all" || "$WHAT" == "tools" ]]; then
     echo "             resubmit this script - the manifest will then be read directly"
   fi
 
-  PLATON_ID="$(submit "11_platon[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
-                      --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
-                      --dependency="afterok:$SHARD_ID" "$HERE/11_platon.sh")"
-  MOB_ID="$(submit "12_mobsuite[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
-                   --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
-                   --dependency="afterok:$SHARD_ID" "$HERE/12_mobsuite.sh")"
+  # Every element of a job array counts against the QoS limit on submitted jobs
+  # per user, and cpu40h rejects 116 of them with QOSMaxSubmitJobPerUserLimit.
+  # TOOLS_MODE=serial runs the same per-shard scripts from one job each instead
+  # (the manual's section 5.3.2 pattern); both modes skip finished shards, so
+  # either can be resubmitted to finish the other's work.
+  if [[ "${TOOLS_MODE:-array}" == "serial" ]]; then
+    SERIAL_CPUS=$(( MAX_PARALLEL * CPUS_PER_TOOL ))
+    # one job now holds what MAX_PARALLEL array elements used to hold
+    SERIAL_MEM="$(( MAX_PARALLEL * ${MEM_PER_TOOL%G} ))G"
+    PLATON_ID="$(submit "11_platon (serial, $N_SHARDS shards)" "${CPU_FLAGS[@]}" \
+                        --cpus-per-task="$SERIAL_CPUS" --mem="$SERIAL_MEM" \
+                        --time="${TIME_TOOLS_SERIAL:-1-00:00:00}" \
+                        --dependency="afterok:$SHARD_ID" \
+                        "$HERE/15_tools_serial.sh" platon)"
+    MOB_ID="$(submit "12_mobsuite (serial, $N_SHARDS shards)" "${CPU_FLAGS[@]}" \
+                     --cpus-per-task="$SERIAL_CPUS" --mem="$SERIAL_MEM" \
+                     --time="${TIME_TOOLS_SERIAL:-1-00:00:00}" \
+                     --dependency="afterok:$SHARD_ID" \
+                     "$HERE/15_tools_serial.sh" mobsuite)"
+  else
+    PLATON_ID="$(submit "11_platon[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
+                        --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
+                        --dependency="afterok:$SHARD_ID" "$HERE/11_platon.sh")"
+    MOB_ID="$(submit "12_mobsuite[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
+                     --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
+                     --dependency="afterok:$SHARD_ID" "$HERE/12_mobsuite.sh")"
+  fi
   SMOKE_ID="$(submit "13_smoke_tools" "${CPU_FLAGS[@]}" \
                      --cpus-per-task="$CPUS_PER_TOOL" --mem="$MEM_PER_TOOL" \
                      --time=03:00:00 --dependency="afterok:$SHARD_ID" \
