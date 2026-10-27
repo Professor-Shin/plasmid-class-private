@@ -148,6 +148,17 @@ job graph:
 10. **`env.sh` ใช้ `: "${VAR:=...}"`** ค่าที่ export ค้างใน shell จะไม่ถูกทับเมื่อ source ซ้ำ
     → `unset` ก่อน หรือเปิด shell ใหม่
 11. **`CUAIM_ACCOUNT` ว่าง ≠ ไม่ใส่** — `--account=` ว่างเปล่า Slurm ปฏิเสธ
+13. **`srun` ในลูป `while read` กิน stdin** — `srun` ส่ง stdin ต่อให้ task แล้วอ่านจนหมด
+    ถ้ารายการที่วนอยู่บน stdin (`done <<<"$LIST"`) ลูปจะจบหลังรอบแรก **แล้ว job exit 0**
+    เหมือนทำงานครบ (เจอกับ `20_esm_embed.sh`: ทำ 1 จาก 18 shard แล้ว merge ก็ fail ตาม)
+    → อ่านรายการผ่าน fd 3 (`read -u 3` + `done 3<<<`) และใส่ `</dev/null` ให้ `srun`
+    **เวลาสงสัยว่างานไม่ครบ ให้นับรอบจาก log อย่าดูแค่ exit code**
+14. **job array ชน `QOSMaxSubmitJobPerUserLimit`** — `cpu40h` นับทุก element เป็น 1 job
+    116 element จึงถูกปฏิเสธ → ใช้ `TOOLS_MODE=serial` หรือ `server/15_tools_serial.sh`
+    ซึ่งวนทุก shard ใน job เดียว (5 ขนาน × 8 threads = 40 CPU เท่าเดิม)
+15. **job หนึ่งจอง 40 CPU = เพดานทั้งหมด** → อีก job ขึ้น `QOSMaxCpuPerUserLimit` และรอ
+    เป็นพฤติกรรมปกติ ไม่ใช่ error (platon กับ mobsuite จึงเดินทีละตัว)
+
 12. **push จากเซิร์ฟเวอร์ไม่ได้** (credential ในบัญชีร่วมเป็นของ user `nanghtet` อ่านได้เขียนไม่ได้
     และไม่ควรเอา token ตัวเองไปวาง) ให้ commit บนเซิร์ฟเวอร์ แล้วดึงจากเครื่องตัวเองด้วย
     `git fetch ssh://naruemonp@161.200.107.77/<PROJECT path> main:<branch>` แล้ว push จากเครื่องนั้น
