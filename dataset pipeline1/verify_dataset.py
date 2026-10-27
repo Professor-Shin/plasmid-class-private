@@ -27,6 +27,45 @@ def check(condition: bool, ok: str, bad: str) -> None:
     (notes if condition else failures).append(ok if condition else bad)
 
 
+def resolve_source_fasta(src: str, assembly: str, sequence_id: str, meta: Path) -> Path | None:
+    """Find the genome a replicon came from, wherever this machine keeps it.
+
+    replicons.csv records the absolute path of the file the pipeline downloaded,
+    which is right on the machine that built the dataset and meaningless anywhere
+    else. Check 7 is the one that re-derives fragments from the source, so it has
+    to keep working after the project moves: fall back to the pipeline's own
+    data/fasta layout, then to the per-replicon cache that
+    server/01b_rebuild_fasta_from_ncbi.py leaves behind.
+    """
+    if src and Path(src).is_file():
+        return Path(src)
+    base = str(src).replace("\\", "/").rstrip("/").split("/")[-1]
+    root = meta.parent.parent                      # .../dataset pipeline1
+    candidates = [
+        root / "data" / "fasta" / assembly / base,
+        root.parent / "tmp" / "ncbi_replicons" / f"{sequence_id}.fasta.gz",
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    return None
+
+
+def read_source_records(path: Path, target: str):
+    """read_fasta, but tolerate the headerless single-sequence cache file."""
+    yielded = False
+    for defline, seq in read_fasta(path):
+        yielded = True
+        yield defline, seq
+    if yielded:
+        return
+    opener = gzip.open if str(path).endswith(".gz") else open
+    with opener(path, "rt", encoding="ascii", errors="replace") as fh:
+        seq = "".join(line.strip() for line in fh)
+    if seq:
+        yield target, seq
+
+
 def main() -> int:
     cfg = load_config()
     random.seed(int(cfg["random_seed"]))
@@ -135,10 +174,16 @@ def main() -> int:
                 seqs[cur] = seqs.get(cur, "") + line.strip()
 
     verified = mismatch = 0
+    unresolved: list[str] = []
     for row in sample_rows.itertuples(index=False):
-        src = rep_by_id.at[row.replicon_id, "source_fasta"]
         target = rep_by_id.at[row.replicon_id, "sequence_id"]
-        for defline, seq in read_fasta(src):
+        src = resolve_source_fasta(rep_by_id.at[row.replicon_id, "source_fasta"],
+                                   rep_by_id.at[row.replicon_id, "assembly_accession"],
+                                   target, meta)
+        if src is None:
+            unresolved.append(f"{row.fragment_id}: no local copy of {target}")
+            continue
+        for defline, seq in read_source_records(src, target):
             if defline.split()[0] != target:
                 continue
             expected = seq[row.start:row.end].upper()
@@ -149,9 +194,13 @@ def main() -> int:
                 failures.append(f"{row.fragment_id}: sequence does not match "
                                 f"{target}[{row.start}:{row.end}]")
             break
-    check(mismatch == 0,
+    # Passing with nothing verified would be the worst outcome of all: this is
+    # the only check that re-derives a fragment from the genome it came from.
+    check(mismatch == 0 and verified == len(sample_rows),
           f"{verified} randomly sampled fragments byte-match their source genome slice",
-          f"{mismatch} sampled fragments do not match their source coordinates")
+          f"{mismatch} sampled fragments do not match their source coordinates"
+          + (f"; {len(unresolved)} could not be checked at all ("
+             + "; ".join(unresolved[:3]) + ")" if unresolved else ""))
 
     # 8. split proportions and class balance
     total = len(allf)

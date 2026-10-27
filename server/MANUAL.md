@@ -301,6 +301,11 @@ genome ชุดใหม่จาก `assembly_summary.txt` ที่เปล�
 > การเทียบกับตัวเลขที่ตีพิมพ์ — ถ้าเจอโน้ตบุ๊กเดิมภายหลัง ส่งแค่โฟลเดอร์นี้ขึ้นมาแล้ว
 > `sbatch server/22_esm_train.sh` ซ้ำได้
 
+> **อย่าลบ `$PROJECT/tmp/ncbi_replicons/` ก่อนรัน `02_verify_data.sh`** — ข้อ 7 ของ
+> `verify_dataset.py` (ตัวที่ re-derive fragment จาก genome ต้นทาง) ใช้ cache นี้แทน
+> `source_fasta` ใน `replicons.csv` ซึ่งเป็น path ของโน้ตบุ๊ก (`D:\senior project\...`)
+> ที่ไม่มีบนเซิร์ฟเวอร์ ลบได้หลัง `02_verify_data.sh` ผ่านแล้ว
+
 > `server/dataset_md5.txt` ที่เส้นทางนี้สร้างให้ **ไม่ใช่**หลักฐานการโอนไฟล์ (มันคือ checksum
 > ของไฟล์ที่เพิ่ง rebuild เอง) รายละเอียดอยู่ใน `server/dataset_md5.origin.txt` ที่สคริปต์เขียนไว้
 > — ข้อ 2 และ 3 ของ `02_verify_data.sh` ยังมีความหมายเต็มเหมือนเดิม
