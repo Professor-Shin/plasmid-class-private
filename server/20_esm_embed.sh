@@ -61,7 +61,12 @@ echo
 echo "--- $(wc -l <<<"$PENDING") shard(s) pending"
 
 mkdir -p "$SERVER_LOGS"
-while read -r SPLIT SHARD NSHARDS _; do
+# The shard list is read on fd 3, not stdin, and srun gets </dev/null: srun
+# forwards its own stdin to the task and consumes it, so with the list on stdin
+# the first srun swallowed every remaining line and the loop ended after one
+# shard - the job then exited 0 with 17 shards still pending, which is how
+# 21_esm_merge came to run on an incomplete cache.
+while read -r -u 3 SPLIT SHARD NSHARDS _; do
   [[ -z "$SPLIT" ]] && continue
   TAG="$SPLIT-shard$SHARD"
   echo
@@ -72,10 +77,10 @@ while read -r SPLIT SHARD NSHARDS _; do
        --error="$SERVER_LOGS/esm-embed-${SLURM_JOB_ID:-local}-$TAG.err" \
        python -u extract_features.py --config "$CONFIG" \
               --split "$SPLIT" --shard "$SHARD" --n-shards "$NSHARDS" \
-              --device cuda
+              --device cuda </dev/null
   echo "    done; log: $SERVER_LOGS/esm-embed-${SLURM_JOB_ID:-local}-$TAG.out"
   tail -3 "$SERVER_LOGS/esm-embed-${SLURM_JOB_ID:-local}-$TAG.out" | sed 's/^/    /'
-done <<<"$PENDING"
+done 3<<<"$PENDING"
 
 echo
 echo "--- remaining work after this job"
