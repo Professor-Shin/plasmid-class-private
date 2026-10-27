@@ -143,14 +143,24 @@ def fetch_one(accession: str, api_key: str | None, email: str | None,
     url = f"{EFETCH}?{urllib.parse.urlencode(params)}"
 
     delay = 2.0
+    text = ""
     for attempt in range(1, attempts + 1):
         try:
-            with urllib.request.urlopen(url, timeout=180) as resp:
+            # A plain Python-urllib user agent is one of the things E-utilities
+            # answers with 400, so identify the script the way http_download does.
+            req = urllib.request.Request(url, headers={"User-Agent": "plasmid-class-rebuild"})
+            with urllib.request.urlopen(req, timeout=180) as resp:
                 text = resp.read().decode("ascii", "replace")
             break
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
             if attempt == attempts:
-                raise RuntimeError(f"{accession}: giving up after {attempts} tries ({exc})") from exc
+                raise RuntimeError(
+                    f"{accession}: giving up after {attempts} tries ({exc})\n"
+                    f"       the request was: {url}\n"
+                    "       A persistent 400 usually means the accession is no longer served\n"
+                    "       under that version (suppressed or replaced). Check it at\n"
+                    f"       https://www.ncbi.nlm.nih.gov/nuccore/{accession}"
+                ) from exc
             print(f"    retry {attempt}/{attempts - 1} for {accession} in {delay:.0f}s ({exc})")
             time.sleep(delay)
             delay = min(delay * 2, 60.0)
@@ -463,6 +473,32 @@ def main() -> int:
 
         print(f"    verified {len(got):,} records from the assembly files"
               f"{f', {len(unresolved)} to fall back on efetch' if unresolved else ''}")
+
+        # Resolve the stragglers now rather than lazily while writing a split:
+        # one report of everything that cannot be had beats dying on the first.
+        if unresolved and not args.smoke:
+            print(f"\n--- efetch fallback for {len(unresolved)} record(s)")
+            failures: list[str] = []
+            for acc in sorted(set(unresolved)):
+                meta = replicons[acc]
+                try:
+                    cached_sequence(acc, cache_dir, meta["sequence_sha256"],
+                                    int(meta["length"]), api_key, email, pause)
+                    print(f"    {acc}: ok")
+                except RuntimeError as exc:
+                    print(f"    {acc}: FAILED")
+                    failures.append(str(exc))
+            if failures:
+                print(f"\nFATAL: {len(failures)} record(s) could not be recovered:",
+                      file=sys.stderr)
+                for f in failures:
+                    print(f"  - {f}", file=sys.stderr)
+                print("\n       Nothing was written. Everything else is cached, so a rerun\n"
+                      "       only retries these. If an accession really is gone from NCBI,\n"
+                      "       the dataset cannot be rebuilt in full - say so rather than\n"
+                      "       dropping its fragments, which would change the split counts.",
+                      file=sys.stderr)
+                return 1
         if args.smoke:
             print("\n  --smoke: every record above matched the sha256 recorded in "
                   "replicons.csv.\n  Nothing was written. Drop --smoke for the real rebuild.")
