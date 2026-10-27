@@ -199,5 +199,5 @@ CPU-hours เพราะ `translate` ของ Biopython เป็น C ส่�
 | `20_esm_embed.sh` | GPU: ORF + ESM-2 embedding วน shard resume ได้ |
 | `21_esm_merge.sh` | รวม shard เป็น cache เดียวต่อ split |
 | `22_esm_train.sh` | GPU: ตรวจ equivalence + regression แล้วเทรน ladder |
-| `30_report.sh` | ตารางรวมทุก baseline เป็น markdown |
+| `30_report.sh` | ตารางรวมทุก baseline เป็น markdown + ส่วน provenance (จำนวน record, CPU/GPU-hours, พื้นที่ดิสก์) จาก `analysis/run_provenance.py` |
 | `submit_all.sh` | ร้อย dependency ทั้งหมด |

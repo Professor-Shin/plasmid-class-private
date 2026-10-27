@@ -199,3 +199,14 @@ if __name__ == "__main__":
         print()
         print(to_md(df.pivot(index="gc_gap_bin", columns="model",
                             values="recall").rename_axis("gc_gap_bin"), "%.3f", index=True))
+
+    # Every section above is what the models scored. These last ones are how many
+    # records went through them and what the cluster spent doing it - the numbers
+    # the dataset and methods sections need, which no result file carries.
+    if os.environ.get("PROVENANCE", "1") != "0":
+        try:
+            import run_provenance
+        except Exception as exc:                        # noqa: BLE001
+            print(f"\n\n_(run_provenance unavailable: {exc})_")
+        else:
+            run_provenance.render(no_sacct=os.environ.get("NO_SACCT") == "1")

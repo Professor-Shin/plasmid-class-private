@@ -45,8 +45,13 @@ fi
 
 echo
 echo "--- every artefact as markdown -> $OUT"
-ESM_RESULTS="${ESM_RESULTS:-results_server}" \
+# ESM_CACHE and SERVER_LOGS are for the provenance section: record counts come
+# from the embedding cache, timings from the per-shard logs, and the compute
+# table from sacct (job ids are read off the log file names).
+ESM_RESULTS="$ESM_RES_DIR" \
 BASE_RESULTS="${BASE_RESULTS:-results_mixed}" \
+ESM_CACHE="$ESM_CACHE_DIR" \
+SERVER_LOGS="$SERVER_LOGS" \
   srun python -u analysis/dump_tables.py | tee "$OUT"
 
 banner "report written"
