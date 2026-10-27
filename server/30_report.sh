@@ -28,16 +28,19 @@ mkdir -p "$SERVER_LOGS"
 OUT="$SERVER_LOGS/report_$(date +%Y%m%d_%H%M).md"
 
 echo "--- GC-signal analysis"
-# gc_signal.py hardcodes the _mixed directories; run it only when they are the
-# ones that were just produced. It is an analysis of the laptop run's artefacts,
-# not a dependency of anything below.
-if [[ -f "$PROJECT/esm2-attention/results_mixed/esm2_variants.json" ]]; then
-  srun python -u analysis/gc_signal.py || echo "    (gc_signal.py failed; non-fatal)"
+# Analyse the run this report is about. results_mixed from the laptop is tracked
+# in git, so without these overrides gc_signal.py would quietly describe the
+# laptop's capped-ORF ladder inside a report about the server run.
+ESM_RES_DIR="${ESM_RESULTS:-results_server}"
+ESM_CACHE_DIR="${ESM_CACHE:-cache_server}"
+if [[ -f "$PROJECT/esm2-attention/$ESM_RES_DIR/esm2_variants.json" ]]; then
+  echo "    reading esm2-attention/$ESM_RES_DIR and $ESM_CACHE_DIR"
+  BASE_RESULTS="${BASE_RESULTS:-results_mixed}" \
+  ESM_RESULTS="$ESM_RES_DIR" ESM_CACHE="$ESM_CACHE_DIR" \
+    srun python -u analysis/gc_signal.py || echo "    (gc_signal.py failed; non-fatal)"
 else
-  echo "    SKIPPED: analysis/gc_signal.py reads esm2-attention/results_mixed,"
-  echo "    which this run does not write (it writes results_server). Point it at"
-  echo "    the server results by editing its ESM_RESULTS/ESM_CACHE constants if"
-  echo "    the GC analysis is wanted for the server ladder too."
+  echo "    SKIPPED: no esm2-attention/$ESM_RES_DIR/esm2_variants.json yet."
+  echo "    Set ESM_RESULTS/ESM_CACHE to analyse a different run."
 fi
 
 echo

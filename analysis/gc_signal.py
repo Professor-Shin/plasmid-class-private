@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import sys
+import os
 from pathlib import Path
 
 import numpy as np
@@ -29,9 +30,12 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parent.parent
 DATASET = ROOT / "dataset pipeline1" / "data" / "dataset_mixed"
 REPLICONS = ROOT / "dataset pipeline1" / "data" / "metadata" / "replicons.csv"
-BASELINE_RESULTS = ROOT / "baseline" / "results_mixed"
-ESM_RESULTS = ROOT / "esm2-attention" / "results_mixed"
-ESM_CACHE = ROOT / "esm2-attention" / "cache_mixed"
+# Which run to analyse. The server writes results_server/cache_server while the
+# laptop wrote results_mixed/cache_mixed, and reading one while the rest of the
+# report shows the other is how a figure ends up describing the wrong run.
+BASELINE_RESULTS = ROOT / "baseline" / os.environ.get("BASE_RESULTS", "results_mixed")
+ESM_RESULTS = ROOT / "esm2-attention" / os.environ.get("ESM_RESULTS", "results_mixed")
+ESM_CACHE = ROOT / "esm2-attention" / os.environ.get("ESM_CACHE", "cache_mixed")
 OUT = ROOT / "analysis" / "results"
 
 GAP_BINS = [0.0, 0.01, 0.02, 0.03, 0.05, 0.08, 1.0]
