@@ -66,6 +66,7 @@ from pathlib import Path
 
 EFETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 FTP_ALL = "https://ftp.ncbi.nlm.nih.gov/genomes/all"
+ENA_FASTA = "https://www.ebi.ac.uk/ena/browser/api/fasta"
 SPLITS = ("train", "validation", "test")
 WIDTH = 70          # step07 wrote 70-column FASTA (pipeline/utils.write_fasta_record)
 
@@ -153,6 +154,11 @@ def fetch_one(accession: str, api_key: str | None, email: str | None,
                 text = resp.read().decode("ascii", "replace")
             break
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+            # 400 and 404 are verdicts, not hiccups: the record is not served
+            # under this accession, so retrying only delays the fallback.
+            if isinstance(exc, urllib.error.HTTPError) and exc.code in (400, 404):
+                raise RuntimeError(f"{accession}: E-utilities says {exc.code} "
+                                   "(not served under this accession)") from exc
             if attempt == attempts:
                 raise RuntimeError(
                     f"{accession}: giving up after {attempts} tries ({exc})\n"
@@ -175,6 +181,11 @@ def fetch_one(accession: str, api_key: str | None, email: str | None,
     return seq
 
 
+def insdc_alias(accession: str) -> str | None:
+    """CP166090.1 for NZ_CP166090.1 - the INSDC record RefSeq copied."""
+    return accession[3:] if accession.startswith("NZ_") else None
+
+
 def assembly_url(assembly_accession: str, source_fasta: str) -> tuple[str, str]:
     """Derive the ftp.ncbi URL of an assembly from what replicons.csv recorded.
 
@@ -193,6 +204,29 @@ def assembly_url(assembly_accession: str, source_fasta: str) -> tuple[str, str]:
     if len(digits) != 9 or prefix not in ("GCF", "GCA"):
         raise RuntimeError(f"{assembly_accession}: cannot build an FTP path from it")
     return (f"{FTP_ALL}/{prefix}/{digits[0:3]}/{digits[3:6]}/{digits[6:9]}/{stem}/{base}", base)
+
+
+def genbank_twin_url(assembly_accession: str, source_fasta: str,
+                     paired: str) -> tuple[str, str] | None:
+    """The GCA_ copy of a GCF_ assembly, when assemblies.csv records one.
+
+    RefSeq suppresses assemblies; GenBank keeps them. When the pair is recorded
+    as identical the bases are the same, and the sha256 check still has to agree
+    before anything is used.
+    """
+    if not paired or not paired.startswith("GCA_"):
+        return None
+    base = source_fasta.replace("\\", "/").rstrip("/").split("/")[-1]
+    suffix = "_genomic.fna.gz"
+    if not base.endswith(suffix):
+        return None
+    asm_name = base[: -len(suffix)].split("_", 2)[-1]        # GCF_041228055.1_NCPPB4692v1 -> NCPPB4692v1
+    digits = paired.split("_")[1].split(".")[0]
+    if len(digits) != 9:
+        return None
+    stem = f"{paired}_{asm_name}"
+    name = f"{stem}{suffix}"
+    return (f"{FTP_ALL}/GCA/{digits[0:3]}/{digits[3:6]}/{digits[6:9]}/{stem}/{name}", name)
 
 
 def http_download(url: str, dest: Path, attempts: int = 4) -> None:
@@ -257,26 +291,41 @@ def load_recorded_urls(path: Path) -> dict[str, str]:
 
 def fetch_assembly(assembly_accession: str, source_fasta: str, wanted: dict[str, dict],
                    cache_dir: Path, asm_dir: Path, keep_assembly: bool,
-                   recorded_url: str | None = None) -> tuple[set[str], int]:
+                   recorded_url: str | None = None,
+                   url_override: tuple[str, str] | None = None) -> tuple[set[str], int]:
     """Download one assembly and cache every wanted record it verifies.
 
     Returns (accessions written, bytes downloaded). A record whose sha256 does
     not match replicons.csv is left out, so the caller falls back to efetch and
     the mismatch is reported there rather than silently accepted here.
     """
-    derived, base = assembly_url(assembly_accession, source_fasta)
-    url = recorded_url or derived
+    if url_override:
+        url, base = url_override
+    else:
+        derived, base = assembly_url(assembly_accession, source_fasta)
+        url = recorded_url or derived
     blob = asm_dir / base
     downloaded = 0
     if not blob.is_file():
         http_download(url, blob)
         downloaded = blob.stat().st_size
 
+    # A GenBank copy names the same record CP166090.1 where RefSeq says
+    # NZ_CP166090.1, so accept either spelling and cache under the recorded one.
+    by_id = dict(wanted)
+    for canonical in wanted:
+        alias = insdc_alias(canonical)
+        if alias:
+            by_id[alias] = wanted[canonical]
+    canonical_of = {**{k: k for k in wanted},
+                    **{insdc_alias(k): k for k in wanted if insdc_alias(k)}}
+
     done: set[str] = set()
     for rid, seq in read_gz_fasta(blob):
-        meta = wanted.get(rid)
+        meta = by_id.get(rid)
         if meta is None:
             continue
+        rid = canonical_of[rid]
         if sha256_sequence(seq) != meta["sequence_sha256"]:
             continue
         out = cache_dir / f"{rid}.fasta.gz"
@@ -291,9 +340,45 @@ def fetch_assembly(assembly_accession: str, source_fasta: str, wanted: dict[str,
     return done, downloaded
 
 
+def fetch_from_ena(accession: str, attempts: int = 3) -> str:
+    """Same record from ENA, which mirrors INSDC independently of NCBI.
+
+    Worth having because RefSeq can suppress an assembly - the GCF_ directory
+    disappears from the FTP site and efetch answers 400 for its NZ_ accessions -
+    while the INSDC record it was copied from is still served everywhere.
+    """
+    url = f"{ENA_FASTA}/{accession}?download=false"
+    delay = 2.0
+    for attempt in range(1, attempts + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "plasmid-class-rebuild"})
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                text = resp.read().decode("ascii", "replace")
+            break
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt == attempts:
+                raise RuntimeError(f"ENA {accession}: {exc}") from exc
+            time.sleep(delay)
+            delay = min(delay * 2, 30.0)
+
+    lines = [ln.strip() for ln in text.splitlines()]
+    if not lines or not lines[0].startswith(">"):
+        raise RuntimeError(f"ENA {accession}: not FASTA ({text[:120]!r})")
+    seq = "".join(ln for ln in lines[1:] if ln and not ln.startswith(">"))
+    if not seq:
+        raise RuntimeError(f"ENA {accession}: empty sequence")
+    return seq
+
+
 def cached_sequence(accession: str, cache_dir: Path, expect_sha: str,
                     expect_len: int, api_key, email, pause: float) -> tuple[str, bool]:
-    """Return (sequence, downloaded_now). Verifies the hash before caching."""
+    """Return (sequence, downloaded_now), trying every mirror that could hold it.
+
+    A RefSeq accession (NZ_CP166090.1) is a copy of an INSDC one (CP166090.1)
+    with the same bases, so when RefSeq no longer serves it the INSDC record is
+    the same sequence - and the sha256 check below is what proves that, rather
+    than being taken on trust.
+    """
     blob = cache_dir / f"{accession}.fasta.gz"
     if blob.is_file():
         try:
@@ -305,18 +390,38 @@ def cached_sequence(accession: str, cache_dir: Path, expect_sha: str,
         except OSError:
             print(f"    cached {accession} is unreadable - refetching")
 
-    seq = fetch_one(accession, api_key, email)
-    time.sleep(pause)
+    sources = [("efetch", accession, lambda a: fetch_one(a, api_key, email)),
+               ("ENA", accession, fetch_from_ena)]
+    alias = insdc_alias(accession)
+    if alias:
+        sources += [("efetch", alias, lambda a: fetch_one(a, api_key, email)),
+                    ("ENA", alias, fetch_from_ena)]
 
-    got_sha = sha256_sequence(seq)
-    if got_sha != expect_sha:
+    seq = None
+    problems = []
+    for name, acc, getter in sources:
+        try:
+            candidate = getter(acc)
+        except RuntimeError as exc:
+            problems.append(f"{name} {acc}: unavailable")
+            continue
+        finally:
+            time.sleep(pause)
+        got = sha256_sequence(candidate)
+        if got == expect_sha:
+            if acc != accession:
+                print(f"    {accession}: recovered from {name} as {acc} (sha256 matches)")
+            seq = candidate
+            break
+        problems.append(f"{name} {acc}: sha256 {got[:12]}… length {len(candidate):,}")
+
+    if seq is None:
         raise RuntimeError(
-            f"{accession}: sha256 mismatch against replicons.csv\n"
-            f"       expected {expect_sha}\n"
-            f"       got      {got_sha}\n"
-            f"       length expected {expect_len:,}, got {len(seq):,}\n"
-            "       The record changed at NCBI (or is a different version). Do NOT\n"
-            "       use it: fragments cut from it would not be the published dataset."
+            f"{accession}: no source returned the recorded sequence\n"
+            f"       expected sha256 {expect_sha}, length {expect_len:,}\n"
+            + "".join(f"       tried {p}\n" for p in problems)
+            + "       Fragments cut from a different sequence would not be the\n"
+              "       published dataset, so nothing is written."
         )
 
     tmp = blob.with_suffix(".gz.part")
@@ -429,8 +534,16 @@ def main() -> int:
             key = (meta["assembly_accession"], meta["source_fasta"])
             by_asm.setdefault(key, {})[acc] = meta
 
-        recorded = load_recorded_urls(root / "dataset pipeline1" / "data" / "metadata"
-                                      / "download_status.csv")
+        meta_dir = root / "dataset pipeline1" / "data" / "metadata"
+        recorded = load_recorded_urls(meta_dir / "download_status.csv")
+        paired: dict[str, str] = {}
+        asm_csv = meta_dir / "assemblies.csv"
+        if asm_csv.is_file():
+            with asm_csv.open(newline="", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    twin = (r.get("gbrs_paired_asm") or "").strip()
+                    if twin.startswith("GCA_"):
+                        paired[r["assembly_accession"]] = twin
         if recorded:
             print(f"  download_status.csv  {len(recorded):,} recorded assembly URLs "
                   "(used instead of deriving the FTP path)")
@@ -452,7 +565,24 @@ def main() -> int:
                                               asm_dir, args.keep_assembly_cache,
                                               recorded.get(asm_acc))
             except FileNotFoundError:
-                print(f"    {asm_acc}: not on the FTP site any more -> efetch fallback")
+                twin = genbank_twin_url(asm_acc, src, paired.get(asm_acc, ""))
+                if twin:
+                    print(f"    {asm_acc}: withdrawn from RefSeq -> trying GenBank "
+                          f"{paired[asm_acc]}")
+                    try:
+                        done, nbytes = fetch_assembly(asm_acc, src, by_asm[key], cache_dir,
+                                                      asm_dir, args.keep_assembly_cache,
+                                                      url_override=twin)
+                        got |= done
+                        bytes_in += nbytes
+                        short = set(by_asm[key]) - done
+                        if short:
+                            unresolved.extend(sorted(short))
+                        continue
+                    except (FileNotFoundError, RuntimeError) as exc2:
+                        print(f"      GenBank copy unavailable too ({exc2})")
+                else:
+                    print(f"    {asm_acc}: not on the FTP site any more")
                 unresolved.extend(by_asm[key])
                 continue
             except RuntimeError as exc:
