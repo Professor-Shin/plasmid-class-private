@@ -321,6 +321,13 @@ def cached_sequence(accession: str, cache_dir: Path, expect_sha: str,
 # --------------------------------------------------------------------------- #
 
 def main() -> int:
+    # Progress has to be visible through `| tee`, where python would otherwise
+    # block-buffer stdout and show nothing for minutes at a time.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:          # python < 3.7
+        pass
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--project", default=os.environ.get("PROJECT"),
