@@ -280,7 +280,7 @@ export NCBI_EMAIL="<your-email>"        # NCBI ขอ contact address
 # export NCBI_API_KEY=<key>             # ถ้ามี จะได้ 10 req/s แทน 3 req/s
 
 python3 -u server/01b_rebuild_fasta_from_ncbi.py --dry-run    # ดูแผนก่อน
-python3 server/01b_rebuild_fasta_from_ncbi.py              # ~2.4 GB, resume ได้
+python3 -u server/01b_rebuild_fasta_from_ncbi.py              # ~2.4 GB, resume ได้
 ```
 
 **ทำไมได้ dataset ชุดเดิม ไม่ใช่ชุดใหม่** — fragment ถูกกำหนดครบด้วย `(sequence_id, start, end)`
