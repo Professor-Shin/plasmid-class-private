@@ -88,7 +88,19 @@ job graph:
       - ทางที่ติดและวิธีแก้: OOM-kill ตอน solve บน login node → ใช้ micromamba ใน
         `$PROJECT/bin`; `mob_init` fail เพราะ `$ENV_MOB/bin` ไม่อยู่ใน PATH (commit `b72cd7a`)
       - **ค้าง: ลบ env `plasmid-ml-py311` (5.3 GB) ที่เผลอสร้างด้วยมือ** — ดูกับดักข้อ 3
-- [ ] sync dataset + `02_verify_data.sh` ผ่าน  ← **กำลังอยู่ขั้นนี้**
+- [x] dataset พร้อมแล้ว (2026-10-28) — โน้ตบุ๊กที่ผลิตข้อมูลใช้ไม่ได้ จึง **rebuild FASTA จาก
+      NCBI** ด้วย `server/01b_rebuild_fasta_from_ncbi.py`: 112,929 fragments จาก 908 replicon
+      / 500 assembly ทุก replicon ผ่าน sha256 ของ `replicons.csv` และทุก fragment ผ่าน
+      length/GC/non-ACGT ของ split CSV
+      - 2 assembly ถูกถอนจาก RefSeq ระหว่างทาง (`GCF_041228055.1`, `GCF_049902035.1`)
+        กู้คืนจาก GenBank/ENA ด้วย accession INSDC (ตัด `NZ_`) — sha256 ตรงทั้งหมด
+      - `verify_dataset.py` ผ่าน 21/21 ข้อ รวมข้อ re-derive จาก genome ต้นทาง
+      - `_dataset_facts.py`: test 16,944 fragments / 116 assemblies / 129 replicons ✓
+      - **ยังอย่าลบ `$PROJECT/tmp/ncbi_replicons/` (0.7 GB)** จนกว่า `02_verify_data.sh`
+        แบบ sbatch จะผ่าน — check 7 ใช้แทน `source_fasta` ที่เป็น path ของโน้ตบุ๊ก
+      - ที่หายไปกู้ไม่ได้: `esm2-attention/cache_mixed` (42 MB) → `22_esm_train` จะข้าม
+        regression check เองและบอกเหตุผล
+- [ ] `submit_all.sh` + ได้ `report_*.md`  ← **กำลังอยู่ขั้นนี้**
       **เครื่อง Linux (`/media/siwakorn/YUTHAPONG/plasmid-class-private`) ทำขั้นนี้ไม่ได้**
       มีแค่ CSV ที่ tracked — ขาด `train/validation/test.fasta` (~2.4 GB) และ
       `esm2-attention/cache_mixed` (42 MB) ซึ่งเป็น generated data ที่ gitignore ไว้
@@ -97,7 +109,6 @@ job graph:
         ครบทุก fragment จึง refetch จาก NCBI ทีละ accession แล้วตัดใหม่ได้ byte-identical
         (accession.version เป็น immutable — ต่างจากการรัน step01/02 ใหม่ที่จะสุ่ม genome ชุดใหม่)
 - [ ] sync dataset + `02_verify_data.sh` ผ่าน
-- [ ] `submit_all.sh` + ได้ `report_*.md`
 
 > อัปเดต checkbox ข้างบนเมื่อทำคืบหน้า แล้ว commit — จะได้รู้ว่าค้างตรงไหนเวลาสลับเครื่อง
 
