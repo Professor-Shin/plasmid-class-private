@@ -183,11 +183,14 @@ CPU-hours เพราะ `translate` ของ Biopython เป็น C ส่�
 |---|---|
 | `MANUAL.md` | **คู่มือทีละขั้นสำหรับลงมือรัน** (อ่านไฟล์นี้ก่อน) |
 | `README.md` | ไฟล์นี้: เหตุผลการออกแบบ + ตารางอ้างอิง |
+| `SETUP-LOG.md` | บันทึกการติดตั้ง 6 ขั้นบน CU-AIM: เจออะไร แก้ยังไง ได้ environment แบบไหน |
+| `HANDOFF.md` | บริบทย่อสำหรับสลับเครื่อง/ถาม Claude ต่อ + สถานะล่าสุด |
 | `env.sh` | **ปุ่มปรับทุกอย่างของคลัสเตอร์อยู่ที่นี่ไฟล์เดียว** |
 | `lib.sh` | โหลด module, activate env, สลับ conda/singularity, map array task → shard |
 | `probe_server.sh` | สำรวจเครื่อง (read-only) ทำก่อนอื่น |
-| `00_setup_envs.sh` | conda env + DB + ESM weights (login node) |
+| `00_setup_envs.sh` | conda env + DB + ESM weights (ใน srun allocation ดู SETUP-LOG.md) |
 | `01_sync_from_laptop.sh` | rsync dataset ขึ้นเซิร์ฟเวอร์ (รันบนโน้ตบุ๊ก) |
+| `01b_rebuild_fasta_from_ncbi.py` | ทางเลือกเมื่อไม่มีเครื่องที่ผลิต dataset: สร้าง FASTA ใหม่จาก CSV + NCBI |
 | `02_verify_data.sh` | md5 + `verify_dataset.py` + ตรวจจำนวน |
 | `10_shard.sh` | test split → 1 FASTA ต่อ assembly |
 | `11_platon.sh` / `12_mobsuite.sh` | job array 116 งาน resume ได้ |
