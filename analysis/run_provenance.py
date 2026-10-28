@@ -127,6 +127,12 @@ def scan_cache() -> tuple[list[dict], dict]:
             "fragments": int(n_frag),
             "orfs": int(real.sum()) if real is not None else None,
             "orf_free_fragments": int((real == 0).sum()) if real is not None else None,
+            # max_orfs_hard_cap clips the ORF list before it is counted, so a
+            # pile-up exactly at the maximum is the only trace left of fragments
+            # whose later ORFs were dropped.
+            "max_orfs_per_fragment": int(real.max()) if real is not None and len(real) else None,
+            "fragments_at_max": (int((real == real.max()).sum())
+                                 if real is not None and len(real) else None),
             "embedding_rows": int(offsets[-1]),
             "bp": int(lengths.sum()) if lengths is not None else None,
             "hidden": hidden,
@@ -236,6 +242,13 @@ def summarise_jobs(rows: list[dict], names: dict[str, str]) -> list[dict]:
             peak[base] = max(peak.get(base, 0), b)
     out = []
     for jid, r in sorted(parents.items(), key=lambda kv: kv[0]):
+        # mobsuite-serial-100.out is shard 100, not job 100 - the zero-padding
+        # rule in JOB_LOG only separates the two below shard 100. Slurm's own
+        # JobName settles it: every job here is submitted with --job-name equal
+        # to the log prefix, so a disagreement means the id was never ours.
+        want, got = names.get(jid, ""), r["JobName"] or ""
+        if want and got and not (want.startswith(got) or got.startswith(want)):
+            continue
         hours = hms_to_hours(r["Elapsed"]) or 0.0
         alloc = tres(r.get("AllocTRES", ""))
         cpus = int(alloc.get("cpu", 0) or 0)
@@ -317,8 +330,22 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
     except Exception as exc:                                    # noqa: BLE001
         print(f"\n\n_(could not parse shard logs in {LOGS}: {exc!r})_")
         logs = {}
+    by_split: dict[str, dict] = {}
+    for tag, e in logs.items():
+        acc = by_split.setdefault(tag.split(".")[0], {"embed_shards": 0})
+        acc["embed_shards"] += 1
+        for k in ("orf_seconds", "embed_minutes", "amino_acids_est"):
+            if k in e:
+                acc[k] = acc.get(k, 0) + e[k]
+    # 21_esm_merge collapses the embedding shards into one cache per split, so the
+    # cache tag is "train" where the logs are keyed "train.shard0001". Match the
+    # shard tag when it exists and fall back to the split's own total, which is
+    # the whole of it once the split is a single cache part.
     for s in shards:
-        s.update({k: v for k, v in logs.get(s["shard"], {}).items() if k != "log"})
+        if e := logs.get(s["shard"]):
+            s.update({k: v for k, v in e.items() if k != "log"})
+        elif len([x for x in shards if x["split"] == s["split"]]) == 1:
+            s.update(by_split.get(s["split"], {}))
 
     print("\n\n### Run provenance: records processed\n")
     if not shards:
@@ -331,11 +358,18 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
                 continue
             per_split.append({
                 "split": split,
-                "shards": len(part),
+                "cache parts": len(part),
+                "embed shards": sum(s.get("embed_shards", 0) for s in part) or None,
                 "fragments": sum(s["fragments"] for s in part),
                 "bp": sum(s["bp"] or 0 for s in part),
                 "ORFs": sum(s["orfs"] or 0 for s in part),
                 "ORF-free frags": sum(s["orf_free_fragments"] or 0 for s in part),
+                "max ORFs/frag": max((s["max_orfs_per_fragment"] or 0 for s in part),
+                                     default=None) or None,
+                "frags at that max": sum(s["fragments_at_max"] or 0 for s in part
+                                         if s["max_orfs_per_fragment"]
+                                         == max((x["max_orfs_per_fragment"] or 0
+                                                 for x in part), default=0)) or None,
                 "ORFs/fragment": (sum(s["orfs"] or 0 for s in part)
                                   / max(sum(s["fragments"] for s in part), 1)),
                 "amino acids (est)": sum(s.get("amino_acids_est", 0) for s in part) or None,
@@ -344,9 +378,14 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
                 "ORF calling (h)": sum(s.get("orf_seconds", 0) for s in part) / 3600 or None,
                 "embedding (h)": sum(s.get("embed_minutes", 0) for s in part) / 60 or None,
             })
-        grand = {"split": "**all**", "shards": len(shards)}
+        grand = {"split": "**all**", "cache parts": len(shards),
+                 "embed shards": sum(r["embed shards"] or 0 for r in per_split) or None}
         for k in ("fragments", "bp", "ORFs", "ORF-free frags", "embedding rows"):
             grand[k] = sum(r[k] for r in per_split)
+        grand["max ORFs/frag"] = max((r["max ORFs/frag"] or 0 for r in per_split),
+                                     default=None) or None
+        grand["frags at that max"] = sum(r["frags at that max"] or 0
+                                         for r in per_split) or None
         grand["ORFs/fragment"] = grand["ORFs"] / max(grand["fragments"], 1)
         grand["amino acids (est)"] = sum(r["amino acids (est)"] or 0 for r in per_split) or None
         grand["cache"] = human(totals["bytes"])
@@ -359,8 +398,13 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
               f"stored as {'/'.join(sorted(dtypes)) or '?'}. "
               "`ORF-free frags` are fragments represented by a single zero vector, "
               "which is why `embedding rows` exceeds `ORFs`. "
+              "`frags at that max` counts fragments sitting exactly on the "
+              "highest ORF count seen; when that number equals `max_orfs_hard_cap` "
+              "in the config, those fragments were truncated. "
               "`amino acids (est)` is ORFs x the mean ORF length recorded in the "
-              "shard log - the cache keeps counts, not lengths.")
+              "shard log - the cache keeps counts, not lengths. `cache parts` is "
+              "what the merge left behind, `embed shards` how many GPU passes "
+              "produced it.")
         doc["records"] = {"per_shard": shards, "totals": totals}
 
     print("\n\n### Run provenance: compute\n")
@@ -388,9 +432,18 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
     doc["disk"] = rows
 
     print("\n\n### Run provenance: software and hardware\n")
-    envf = next((p for p in (ESM / "environment.json",
-                             ROOT / "esm2-attention" / "results" / "environment.json")
-                 if p.exists()), None)
+    def captured_at(p: Path) -> str:
+        try:
+            return json.loads(p.read_text()).get("captured_at", "")
+        except (OSError, ValueError):
+            return ""
+    # capture_environment.py writes into whichever results dir it was pointed at,
+    # which is not always the one being reported on: the server run left its file
+    # in results_mixed. Take the most recently captured of them rather than the
+    # first that exists, or the report describes the laptop that trained nothing.
+    cands = [ESM / "environment.json"] + sorted(
+        (ROOT / "esm2-attention").glob("results*/environment.json"))
+    envf = max((p for p in cands if p.exists()), key=captured_at, default=None)
     if envf is None:
         print("_(missing: no environment.json - run "
               "`python esm2-attention/capture_environment.py` on the machine that "
