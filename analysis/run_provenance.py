@@ -65,7 +65,7 @@ def human(n: float, unit="B") -> str:
 def table(rows: list[dict], floatfmt="%.2f") -> str:
     if not rows:
         return "_(nothing to report)_"
-    head = list(rows[0])
+    head = [k for k in rows[0] if not k.startswith("_")]
     out = ["| " + " | ".join(head) + " |", "|" + "|".join("---" for _ in head) + "|"]
     for r in rows:
         cells = []
@@ -258,6 +258,10 @@ def summarise_jobs(rows: list[dict], names: dict[str, str]) -> list[dict]:
         if not gpus:
             gpus = sum(int(v) for k, v in alloc.items()
                        if k.startswith("gres/gpu") and v.isdigit())
+        # the typed key names the MIG profile the QoS actually handed out, which
+        # is the only place the GPU model is written down on this cluster
+        gpu_type = next((k.split(":", 1)[1] for k in alloc
+                         if k.startswith("gres/gpu:")), "")
         out.append({
             "job": jid,
             "name": r["JobName"] or names.get(jid, ""),
@@ -273,6 +277,7 @@ def summarise_jobs(rows: list[dict], names: dict[str, str]) -> list[dict]:
             "gpu_hours": round(gpus * hours, 2),
             "peak_rss": human(peak[jid]) if jid in peak else None,
             "exit": r.get("ExitCode", ""),
+            "_gpu_type": gpu_type,
         })
     return out
 
@@ -452,11 +457,19 @@ def render(no_sacct: bool = False, json_out: Path | None = None) -> dict:
         env = json.loads(envf.read_text())
         hw, osx = env.get("hardware", {}), env.get("os", {})
         print(f"captured `{envf.relative_to(ROOT)}` at {env.get('captured_at', '?')}\n")
+        # capture_environment.py records whatever the platform offered, and the
+        # cluster node reports neither a CPU model nor its RAM, so each field
+        # falls back instead of printing a question mark.
+        cores = hw.get("logical_cores") or hw.get("logical_cpus")
+        gpu_types = sorted({j["_gpu_type"] for j in jobs
+                            if j.get("_gpu_type")}) if jobs else []
         print(table([{
             "host": f"{osx.get('system', '?')} {osx.get('version', '')}".strip(),
-            "cpu": hw.get("cpu_model", "?"),
-            "cores": f"{hw.get('physical_cores', '?')}p/{hw.get('logical_cores', '?')}l",
-            "ram": human(hw.get("ram_bytes", 0)),
+            "cpu": hw.get("cpu_model") or hw.get("machine", "?"),
+            "cores": (f"{hw['physical_cores']}p/{cores}l"
+                      if hw.get("physical_cores") else f"{cores or '?'} logical"),
+            "gpu": "/".join(gpu_types) or "-",
+            "ram": human(hw["ram_bytes"]) if hw.get("ram_bytes") else "-",
             "python": (env.get("python") or {}).get("version", "?"),
             "torch": (env.get("torch") or {}).get("version", "?"),
             "cuda": str((env.get("torch") or {}).get("cuda_available", "?")),
