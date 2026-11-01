@@ -1,6 +1,12 @@
 #!/bin/bash
 # Shared helpers for every CU-AIM job script. Source env.sh first.
 
+# Where this file lives, resolved once at source time. Everything here that
+# needs a sibling script uses this rather than $PROJECT/$REPO: those are
+# configuration and can be wrong or still a placeholder, whereas this is simply
+# where the code being executed actually is.
+CUAIM_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # `module` is a shell function defined by /etc/profile.d, which only a login
 # shell sources. Every job script therefore uses `#!/bin/bash -l` (as all the
 # manual's listings do), but `bash script.sh` from an already-set-up shell does
@@ -53,14 +59,67 @@ run_tool() {
     case "$tool" in
       platon)    sif="$SIF_PLATON" ;;
       mob_recon) sif="$SIF_MOB" ;;
+      plasme|plasmidhunter)
+        echo "FATAL: no Singularity image is defined for '$tool'. Neither upstream" >&2
+        echo "       publishes one, so these two run under conda only - set" >&2
+        echo "       TOOL_RUNTIME=conda for them." >&2
+        return 2 ;;
       *) echo "FATAL: run_tool does not know '$tool'" >&2; return 2 ;;
     esac
     [[ -f "$sif" ]] || { echo "FATAL: missing image $sif" >&2; return 1; }
     singularity exec --bind "$PROJECT:$PROJECT:rw" "$sif" "$tool" "$@"
+  elif [[ "$tool" == "plasme" ]]; then
+    # PLASMe is a git checkout, not an installed command: PLASMe.py imports
+    # bio_script / trans_model / trans_data as siblings, which Python resolves
+    # from the SCRIPT's directory, so invoking it by absolute path works from
+    # any working directory - but invoking a copy of it would not.
+    [[ -f "$PLASME_DIR/PLASMe.py" ]] || {
+      echo "FATAL: no PLASMe.py at $PLASME_DIR - run 00_setup_envs.sh" >&2; return 1; }
+    python "$PLASME_DIR/PLASMe.py" "$@"
   else
     command -v "$tool" >/dev/null || { echo "FATAL: $tool not on PATH" >&2; return 1; }
     "$tool" "$@"
   fi
+}
+
+# run_tool, with wall clock, CPU seconds and peak RSS recorded to a JSON file.
+# Used by every per-shard tool runner so the report can compare what the five
+# baselines cost on the same input, which sacct cannot do: it accounts per JOB,
+# and the serial runner puts all 116 shards of a tool in one job.
+#
+#   timed_tool <runtime.json> <tool> <shard> <contigs> <bp> -- <args...>
+timed_tool() {
+  local json="$1" tool="$2" shard="$3" contigs="$4" bp="$5"; shift 5
+  [[ "${1:-}" == "--" ]] && shift
+  local wrapper="$CUAIM_LIB_DIR/_timed_run.py"
+  if [[ ! -f "$wrapper" ]]; then
+    echo "WARN: $wrapper missing; running untimed" >&2
+    run_tool "$tool" "$@"
+    return
+  fi
+  # run_tool is a shell FUNCTION (it picks conda vs Singularity vs a path
+  # invocation), and the wrapper execs a program, so the function is re-entered
+  # through a child bash rather than passed as a command. `bash -l` is not used:
+  # the environment is already set up by the caller and a login shell would
+  # reset PATH out from under the activated conda env.
+  python "$wrapper" --json "$json" --tool "$tool" --shard "$shard" \
+      --threads "${CPUS_PER_TOOL:-0}" --contigs "${contigs:-0}" --bp "${bp:-0}" \
+      -- bash -c '
+        set -euo pipefail
+        source "$1/env.sh"
+        source "$1/lib.sh"
+        shift
+        run_tool "$@"
+      ' _ "$CUAIM_LIB_DIR" "$tool" "$@"
+}
+
+# One field of one shard's manifest row, by column NAME: the manifest's column
+# order is not a contract, and the timing record needs n_fragments and bp.
+shard_field() {
+  local manifest="$1" shard="$2" column="$3"
+  awk -F',' -v s="$shard" -v c="$column" '
+    NR==1 { for (i = 1; i <= NF; i++) if ($i == c) col = i; next }
+    $1 == s && col { print $col; exit }' "$manifest"
 }
 
 # One array task maps to one line of the shard manifest. Line 1 is the header, so

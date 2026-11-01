@@ -82,7 +82,9 @@ if grep -q -- "--min_length" <<<"$MOB_HELP"; then
   LEN_ARGS=(--min_length "${MIN_LEN:-1000}")
 fi
 
-echo "  input    $FASTA ($(grep -c '^>' "$FASTA") contigs, $(du -h "$FASTA" | cut -f1))"
+N_CONTIGS="$(shard_field "$MANIFEST" "$SHARD" n_fragments)"
+N_BP="$(shard_field "$MANIFEST" "$SHARD" bp)"
+echo "  input    $FASTA ($N_CONTIGS contigs, $N_BP bp, $(du -h "$FASTA" | cut -f1))"
 echo "  database ${DB_ARGS[*]:-<tool default>}"
 echo "  threads  ${THREAD_ARGS[*]:-<tool default>}"
 echo "  min len  ${LEN_ARGS[*]:-<tool default>}"
@@ -92,7 +94,10 @@ echo "  min len  ${LEN_ARGS[*]:-<tool default>}"
 STAGE="$TOOL_OUT/mobsuite/.stage-$SHARD-${SLURM_JOB_ID:-$$}"
 rm -rf "$STAGE"
 
-run_tool mob_recon \
+# The runtime record goes BESIDE the stage, not inside it: mob_recon --force
+# recreates its output directory, which would take any file written there first
+# with it. See 11_platon.sh for why these timings are collected at all.
+timed_tool "$STAGE.runtime.json" mob_recon "$SHARD" "$N_CONTIGS" "$N_BP" -- \
      --infile "$FASTA" \
      --outdir "$STAGE" \
      "${DB_ARGS[@]}" "${THREAD_ARGS[@]}" "${LEN_ARGS[@]}" \
@@ -106,6 +111,7 @@ fi
 
 rm -rf "$OUT"
 mv "$STAGE" "$OUT"
+[[ -f "$STAGE.runtime.json" ]] && mv -f "$STAGE.runtime.json" "$OUT/runtime.json"
 
 echo "  rows in contig_report: $(( $(wc -l < "$OUT/contig_report.txt") - 1 ))"
 banner "mob_recon done | shard $SHARD"

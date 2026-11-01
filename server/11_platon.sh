@@ -59,7 +59,9 @@ cuaim_activate "$ENV_PLATON"
 require_dirs "$PLATON_DB"
 mkdir -p "$OUT"
 
-echo "  input    $FASTA ($(grep -c '^>' "$FASTA") contigs, $(du -h "$FASTA" | cut -f1))"
+N_CONTIGS="$(shard_field "$MANIFEST" "$SHARD" n_fragments)"
+N_BP="$(shard_field "$MANIFEST" "$SHARD" bp)"
+echo "  input    $FASTA ($N_CONTIGS contigs, $N_BP bp, $(du -h "$FASTA" | cut -f1))"
 echo "  database $PLATON_DB"
 echo "  threads  $CPUS_PER_TOOL"
 
@@ -75,7 +77,14 @@ mkdir -p "$STAGE"
 # a binary, so it cannot launch one. A single-task array element needs no job
 # step of its own - the manual's own batch example in 4.4.5 calls its program
 # directly too.
-run_tool platon \
+#
+# timed_tool wraps run_tool and writes wall clock, CPU seconds and peak RSS to
+# runtime.json inside the stage, which is moved into $OUT with the rest. sacct
+# accounts per JOB, and the serial runner puts all 116 shards in one job, so
+# this is the only place a per-tool cost can come from. A shard that already has
+# output is skipped above and keeps whatever record it had - re-running finished
+# shards just to collect timings would change the results they produced.
+timed_tool "$STAGE/runtime.json" platon "$SHARD" "$N_CONTIGS" "$N_BP" -- \
      --db "$PLATON_DB" \
      --output "$STAGE" \
      --prefix "$SHARD" \
