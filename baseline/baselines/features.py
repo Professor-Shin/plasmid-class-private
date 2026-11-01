@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def revcomp_index_table(k: int) -> np.ndarray:
@@ -79,6 +80,31 @@ def count_kmers(codes: np.ndarray, k: int, colmap: np.ndarray | None, n_cols: in
     flat = flat[~bad]
     counts = np.bincount(flat, minlength=n * n_cols).reshape(n, n_cols)
     return counts.astype(np.uint16)
+
+
+def count_kmers_one(codes: np.ndarray, k: int, colmap: np.ndarray | None,
+                    n_cols: int) -> np.ndarray:
+    """k-mer counts for ONE variable-length sequence of 0-3 base codes (4 = other).
+
+    count_kmers above needs every row to be the same length, because it works on
+    a rectangular (n, length) array - that is fine for the fixed-5-kb dataset and
+    impossible for the mixed-length one, where a fragment is anywhere from 1 kb
+    to 100 kb. Same semantics otherwise: a window containing a non-ACGT base is
+    skipped, which is what KMC and Biostrings::oligonucleotideFrequency do.
+    """
+    if len(codes) < k:
+        return np.zeros(n_cols, dtype=np.int64)
+    view = sliding_window_view(codes, k)
+    clean = (view != 4).all(1)
+    idx = np.zeros(view.shape[0], dtype=np.int64)
+    for j in range(k):
+        idx = idx * 4 + view[:, j]
+    idx = idx[clean]
+    if not len(idx):
+        return np.zeros(n_cols, dtype=np.int64)
+    if colmap is not None:
+        idx = colmap[idx]
+    return np.bincount(idx, minlength=n_cols).astype(np.int64)
 
 
 def build_features(seq_path: Path, n_rows: int, frag_len: int, k: int, canonical: bool,

@@ -28,7 +28,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from numpy.lib.stride_tricks import sliding_window_view
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
@@ -46,22 +45,13 @@ SPLITS = ("train", "validation", "test")
 def kmer_freq(codes: np.ndarray, k: int, colmap: np.ndarray, n_cols: int) -> np.ndarray:
     """Canonical k-mer frequencies for one variable-length fragment.
 
-    Windows containing a non-ACGT base are skipped, matching what KMC and
-    Biostrings::oligonucleotideFrequency do and what features.count_kmers does
-    for the fixed-length case.
+    The counting itself lives in features.count_kmers_one so that this and the
+    retrained Zou baseline (run_zou_mixed.py) provably count the same thing;
+    only the normalisation differs between them.
     """
-    if len(codes) < k:
-        return np.zeros(n_cols, dtype=np.float32)
-    view = sliding_window_view(codes, k)
-    clean = (view != 4).all(1)
-    idx = np.zeros(view.shape[0], dtype=np.int64)
-    for j in range(k):
-        idx = idx * 4 + view[:, j]
-    idx = idx[clean]
-    if not len(idx):
-        return np.zeros(n_cols, dtype=np.float32)
-    counts = np.bincount(colmap[idx], minlength=n_cols).astype(np.float32)
-    return counts / counts.sum()
+    counts = features.count_kmers_one(codes, k, colmap, n_cols).astype(np.float32)
+    total = counts.sum()
+    return counts / total if total else counts
 
 
 def build_split(dataset_dir: Path, cache: Path, split: str, table: pd.DataFrame,
