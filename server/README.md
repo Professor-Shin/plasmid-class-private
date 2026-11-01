@@ -6,8 +6,14 @@
 >
 > ไฟล์นี้ตอบว่า **ทำไม**ออกแบบแบบนี้ และเป็นตารางอ้างอิงไฟล์
 
-งานที่รัน: เพิ่ม baseline **Platon** และ **MOB-suite (mob_recon)** และรัน ESM-2 แบบไม่มี
+งานที่รัน: baseline ที่ตีพิมพ์แล้ว **5 ตัว** — **Platon**, **MOB-suite (mob_recon)**,
+**PLASMe**, **PlasmidHunter** และ **Zou et al. (เทรนใหม่)** — และรัน ESM-2 แบบไม่มี
 คอขวดของโน้ตบุ๊ก
+
+4 ตัวแรกรันตามที่เผยแพร่ ไม่เทรนใหม่ (database/rule/pretrained-model) ส่วน **Zou et al.
+เป็นตัวเดียวที่ต้องเทรน** เพราะเป็นสถาปัตยกรรมไม่ใช่เครื่องมือสำเร็จรูป — ผลเดิมใน
+`baseline/results/zou_*.json` เทรนบน dataset 5 kb ตัวเก่า (test n=72,332) จึงเอามาวาง
+เทียบกับผลบน dataset mixed (test n=16,944) ไม่ได้ ต้องเทรนใหม่
 
 อ้างอิงข้อกำหนดของเครื่องจาก `survival-manual-cuaim.pdf` (CU-AIM User Manual 2026)
 
@@ -43,7 +49,8 @@ login node ออกเน็ตได้ไหม
 **แล้วแก้ `server/env.sh`** ตามหัวข้อ SUMMARY ที่สคริปต์พิมพ์ไว้ท้ายสุด — อย่างน้อยต้องแก้
 `PROJECT`, `CUAIM_ACCOUNT`, `PART_CPU`, `PART_GPU`, `GRES_GPU`
 
-> พื้นที่ที่ต้องใช้ **~24 GB**: dataset 2.5 + Platon DB 2.8 + MOB DB ~4 +
+> พื้นที่ที่ต้องใช้ **~55 GB**: dataset 2.5 + Platon DB 2.8 + MOB DB ~4 + PLASMe DB ~16
+> (archive 12.4 GB ลบทิ้งหลัง index) + PlasmidHunter DB 0.4 + conda env 5 ตัว ~14 +
 > embeddings **5.2** + conda envs ~8 + log/output ~1
 >
 > ตัวเลข embeddings **วัดจากข้อมูลจริง** ไม่ใช่ประมาณ: ปลด `max_orfs` แล้วได้ **8.79 M ORFs**
@@ -103,11 +110,18 @@ DRY_RUN=1 bash server/submit_all.sh       # ดูคำสั่ง sbatch ก�
 ```
 
 ```
-10_shard ──┬─ 11_platon[1-116%5]   (cpu40h) ──┬─ 14_collect_score ─┐
-           ├─ 12_mobsuite[1-116%5] (cpu40h) ──┤                    ├─ 30_report
-           └─ 13_smoke_tools (gate) ──────────┘                    │
-20_esm_embed (gpu40g) ── 21_esm_merge ── 22_esm_train (gpu40g) ────┘
+10_shard ──┬─ 11_platon[1-116%5]        (cpu40h) ──┬─ 14_collect_score ─┐
+           ├─ 12_mobsuite[1-116%5]      (cpu40h) ──┤                    │
+           ├─ 16_plasme[1-116%2]        (cpu40h) ──┤                    ├─ 30_report
+           ├─ 17_plasmidhunter[1-116%5] (cpu40h) ──┤                    │
+           └─ 13_smoke_tools (gate) ──────────────-┘                    │
+18_zou (cpu40h, 16 cpu) ──────────────────────────────────────────────  ┤
+20_esm_embed (gpu40g) ── 21_esm_merge ── 22_esm_train (gpu40g) ───────-  ┘
 ```
+
+`bash server/submit_all.sh tools` ส่งทั้ง 5 baseline
+`TOOLS="plasme plasmidhunter" bash server/submit_all.sh tools` ส่งเฉพาะตัวที่ระบุ
+(ใช้ตอนเพิ่มเครื่องมือใหม่โดยไม่ต้องรันตัวที่มีผลแล้วซ้ำ — ทุก runner ข้าม shard ที่มี output อยู่แล้ว)
 
 ติดตามงาน:
 ```bash
@@ -129,11 +143,33 @@ fragment ของ assembly หนึ่ง **คือ draft assembly ที่
 **Throttle `%5`** เพราะ QoS `cpu40h` ให้ 40 CPU และคู่มือ §5.1.2 เตือนว่าลิมิตอาจนับ**รวม**
 ทุก job ของผู้ใช้ → 5 งาน × 8 CPU = 40 พอดีทั้งสองกรณี
 
+**PLASMe แบ่ง 116 shard เหมือนกัน แต่ไม่ได้ต้องการมัน** — PLASMe กับ PlasmidHunter
+ตัดสิน contig ทีละตัวเป็นอิสระ ไม่ได้ใช้บริบทของไอโซเลตแบบ mob_recon การใช้ shard ชุด
+เดียวกันจึงไม่ได้ช่วยหรือทำร้ายมัน แต่ทำให้ **input ของทั้ง 4 เครื่องมือเหมือนกันทุกไบต์**
+ซึ่งเป็นเงื่อนไขเดียวที่ทำให้ตัวเลขเวลา/หน่วยความจำเทียบกันได้
+
+> **แต่ shard ≠ draft assembly ที่สมบูรณ์** — split แบ่งที่ระดับ replicon ไม่ใช่ระดับ
+> assembly ใน test split จึงมี 70/116 shard ที่มีแต่โครโมโซม, 42 shard ที่มีแต่พลาสมิด,
+> และแค่ 4 shard ที่มีทั้งสองอย่าง ดู `analysis/results/dataset_shard_composition.csv`
+> และหัวข้อเดียวกันในรายงาน — นี่เป็นข้อจำกัดของการตีความผล Platon/MOB-suite ที่ต้องเขียน
+
 **Platon รัน `--characterize` รอบเดียว** เพราะ `.tsv` ปกติเขียนแค่ contig ที่เป็น plasmid
 แต่ `--characterize` ปิด filter และรายงาน RDS + hallmark ทุกคอลัมน์ของ**ทุก** contig →
 คำนวณกฎทั้ง 3 mode ย้อนหลังได้ (`tools-baseline/toolbase/rules.py`) และได้ **RDS เป็น
 continuous score** สำหรับ AUROC/AUPRC `13_smoke_tools.sh` พิสูจน์ว่ากฎที่คำนวณย้อนหลัง
 ตรงกับ `platon --mode accuracy` ของจริง 100% **ถ้าไม่ตรงมันจะ fail และ 14 จะไม่รัน**
+
+**PLASMe ใช้กลไกเดียวกัน** — preset ทั้ง 3 (`high-sensitivity`/`balance`/`high-precision`)
+เป็นแค่ threshold สามตัวบน identity, coverage และ probability ของ Transformer ซึ่ง
+`<temp>/PLASMe_candidate.csv` เขียนไว้ครบทุก contig ที่ align ได้ รันรอบเดียวจึงได้ครบ
+3 mode + ได้ **Transformer probability เป็น continuous score** ด้วย
+(`16_plasme.sh` จึงเก็บ temp dir ไว้ ไม่ลบ — ไฟล์ที่ PLASMe โชว์ออกมาเองมีแต่ contig
+ที่มันตัดสินว่าเป็นพลาสมิด ใช้เป็นตัวส่วนไม่ได้)
+กฎนี้ถูกตรวจกับ `_report.csv` ของ PLASMe เอง **ทุก shard** ตอน `collect_plasme.py`
+
+**PlasmidHunter เป็นตัวเดียวใน 4 ตัวที่คืนความน่าจะเป็นจริง** (posterior ของ Gaussian
+naive Bayes บน gene-content profile) จึงขึ้น ROC curve ได้โดยไม่ต้องใช้ ranking heuristic
+แบบ mob_recon
 
 **ESM-2 เป็น job เดียวไม่ใช่ array** เพราะ QoS ให้ GPU 1 ตัวต่อ job (ยกเว้น `gpu40g24m` ได้ 2)
 shard จึงมีไว้เพื่อ **resume** ไม่ใช่ขนาน — แต่ละ shard เป็น `srun` แยกมี log ของตัวเอง และ
@@ -194,10 +230,14 @@ CPU-hours เพราะ `translate` ของ Biopython เป็น C ส่�
 | `02_verify_data.sh` | md5 + `verify_dataset.py` + ตรวจจำนวน |
 | `10_shard.sh` | test split → 1 FASTA ต่อ assembly |
 | `11_platon.sh` / `12_mobsuite.sh` | job array 116 งาน resume ได้ |
-| `13_smoke_tools.sh` | **gate**: เครื่องมือรันได้ + กฎ Platon ถูก |
-| `14_collect_score.sh` | รวมผล → ให้คะแนนด้วย metric ของ baseline เดิม |
+| `16_plasme.sh` / `17_plasmidhunter.sh` | เหมือนกัน สำหรับ 2 เครื่องมือใหม่ |
+| `15_tools_serial.sh` | วนทุก shard ของ 1 เครื่องมือใน job เดียว (ทางที่ใช้จริง — ดูกับดักข้อ 14) |
+| `18_zou.sh` | เทรน Zou et al. ใหม่บน dataset mixed (baseline ตัวที่ 5) |
+| `_timed_run.py` | ครอบทุกการเรียกเครื่องมือ บันทึก wall/CPU/peak RSS ลง `runtime.json` |
+| `13_smoke_tools.sh` | **gate**: ทั้ง 4 เครื่องมือรันได้ + กฎ Platon และ PLASMe ถูก |
+| `14_collect_score.sh` | รวมผลทั้ง 4 → ให้คะแนนด้วย metric ของ baseline เดิม + ตารางต้นทุน |
 | `20_esm_embed.sh` | GPU: ORF + ESM-2 embedding วน shard resume ได้ |
 | `21_esm_merge.sh` | รวม shard เป็น cache เดียวต่อ split |
 | `22_esm_train.sh` | GPU: ตรวจ equivalence + regression แล้วเทรน ladder |
-| `30_report.sh` | ตารางรวมทุก baseline เป็น markdown + ส่วน provenance (จำนวน record, CPU/GPU-hours, พื้นที่ดิสก์) จาก `analysis/run_provenance.py` |
+| `30_report.sh` | ตารางรวมทุก baseline + สถิติ dataset + ต้นทุนต่อเครื่องมือ เป็น markdown พร้อมส่วน provenance จาก `analysis/run_provenance.py` และ `analysis/dataset_stats.py` |
 | `submit_all.sh` | ร้อย dependency ทั้งหมด |

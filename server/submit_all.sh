@@ -2,23 +2,36 @@
 # Submit the whole pipeline with the right dependencies, from the login node.
 #
 #   bash server/submit_all.sh                # everything
-#   bash server/submit_all.sh tools          # only Platon + MOB-suite
+#   bash server/submit_all.sh tools          # the four published tools + Zou
 #   bash server/submit_all.sh esm            # only the ESM-2 chain
+#   TOOLS="plasme plasmidhunter" bash server/submit_all.sh tools
+#                                            # only those tools (plus the gate,
+#                                            # collection and report). Use this to
+#                                            # add a tool without re-running the
+#                                            # ones that already have results.
 #   DRY_RUN=1 bash server/submit_all.sh      # print the sbatch commands only
 #
 # Resource values come from env.sh and are passed on the sbatch COMMAND LINE,
 # which overrides the #SBATCH directives inside each script - those directives
 # cannot read variables, so they only carry defaults.
 #
-#   10_shard ──┬─ 11_platon[1-N%P] ──┬─ 14_collect_score ─┐
-#              ├─ 12_mobsuite[1-N%P] ┤                    ├─ 30_report
-#              └─ 13_smoke_tools ────┘                    │
-#   20_esm_embed ── 21_esm_merge ── 22_esm_train ─────────┘
+#   10_shard ──┬─ 11_platon[1-N%P] ───────┬─ 14_collect_score ─┐
+#              ├─ 12_mobsuite[1-N%P] ──────┤                    │
+#              ├─ 16_plasme[1-N%P] ────────┤                    ├─ 30_report
+#              ├─ 17_plasmidhunter[1-N%P] ─┤                    │
+#              └─ 13_smoke_tools (gate) ───┘                    │
+#   18_zou ───────────────────────────────────────────────────  ┤
+#   20_esm_embed ── 21_esm_merge ── 22_esm_train ──────────────  ┘
 #
-# 13_smoke_tools is a GATE and runs in parallel with the arrays rather than
-# before them: it re-runs Platon in both modes on two shards and proves that the
-# offline re-derivation of the accuracy rule is exact. 14_collect_score depends on
-# it with afterok, so if the gate fails nothing is scored.
+# 13_smoke_tools is a GATE and runs in parallel with the tool jobs rather than
+# before them: it runs all four tools on 20 fragments and proves that the two
+# offline rule re-derivations (Platon's filter modes, PLASMe's presets) are
+# exact. 14_collect_score depends on it with afterok, so if the gate fails
+# nothing is scored.
+#
+# 18_zou depends on nothing: it is the one baseline that trains, so it reads the
+# dataset directly rather than the per-assembly shards, and it asks for 16 CPUs
+# rather than 40 so it fits alongside a tool job inside the cpu40h cap.
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,9 +64,24 @@ submit() {   # submit <description> <sbatch args...> ; echoes the job id
   echo "$id"
 }
 
+# Which of the four published tools to run. Default is all of them; TOOLS=...
+# narrows it, which is how a newly added tool is run without touching the ones
+# whose results are already collected. Every per-shard runner skips a shard that
+# already has output, so re-running a finished tool is cheap but pointless.
+ALL_TOOLS="platon mobsuite plasme plasmidhunter"
+TOOLS="${TOOLS:-$ALL_TOOLS}"
+for t in $TOOLS; do
+  case " $ALL_TOOLS " in
+    *" $t "*) ;;
+    *) echo "FATAL: unknown tool '$t'; TOOLS must be a subset of: $ALL_TOOLS" >&2
+       exit 2 ;;
+  esac
+done
+
 echo "=== submitting on $(hostname) as $(whoami)"
 echo "    project  $PROJECT"
 echo "    cpu      partition=$PART_CPU qos=$QOS_CPU  ${CPUS_PER_TOOL} cpus x ${MAX_PARALLEL} parallel"
+echo "    tools    $TOOLS"
 echo "    gpu      partition=$PART_GPU qos=$QOS_GPU gres=$GRES_GPU"
 echo
 
@@ -80,37 +108,69 @@ if [[ "$WHAT" == "all" || "$WHAT" == "tools" ]]; then
   # TOOLS_MODE=serial runs the same per-shard scripts from one job each instead
   # (the manual's section 5.3.2 pattern); both modes skip finished shards, so
   # either can be resubmitted to finish the other's work.
-  if [[ "${TOOLS_MODE:-array}" == "serial" ]]; then
-    SERIAL_CPUS=$(( MAX_PARALLEL * CPUS_PER_TOOL ))
-    # one job now holds what MAX_PARALLEL array elements used to hold
-    SERIAL_MEM="$(( MAX_PARALLEL * ${MEM_PER_TOOL%G} ))G"
-    PLATON_ID="$(submit "11_platon (serial, $N_SHARDS shards)" "${CPU_FLAGS[@]}" \
-                        --cpus-per-task="$SERIAL_CPUS" --mem="$SERIAL_MEM" \
-                        --time="${TIME_TOOLS_SERIAL:-1-00:00:00}" \
-                        --dependency="afterok:$SHARD_ID" \
-                        "$HERE/15_tools_serial.sh" platon)"
-    MOB_ID="$(submit "12_mobsuite (serial, $N_SHARDS shards)" "${CPU_FLAGS[@]}" \
-                     --cpus-per-task="$SERIAL_CPUS" --mem="$SERIAL_MEM" \
-                     --time="${TIME_TOOLS_SERIAL:-1-00:00:00}" \
-                     --dependency="afterok:$SHARD_ID" \
-                     "$HERE/15_tools_serial.sh" mobsuite)"
-  else
-    PLATON_ID="$(submit "11_platon[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
-                        --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
-                        --dependency="afterok:$SHARD_ID" "$HERE/11_platon.sh")"
-    MOB_ID="$(submit "12_mobsuite[$N_SHARDS]" "${CPU_FLAGS[@]}" "${TOOL_FLAGS[@]}" \
-                     --array="1-${N_SHARDS}%${MAX_PARALLEL}" \
-                     --dependency="afterok:$SHARD_ID" "$HERE/12_mobsuite.sh")"
-  fi
+  declare -A TOOL_SCRIPT=( [platon]="11_platon.sh" [mobsuite]="12_mobsuite.sh"
+                           [plasme]="16_plasme.sh" [plasmidhunter]="17_plasmidhunter.sh" )
+  declare -A TOOL_LABEL=( [platon]="11_platon" [mobsuite]="12_mobsuite"
+                          [plasme]="16_plasme" [plasmidhunter]="17_plasmidhunter" )
+  TOOL_IDS=()
+  for t in $TOOLS; do
+    if [[ "${TOOLS_MODE:-array}" == "serial" ]]; then
+      # PLASMe keeps a 12 GB BLAST database resident per concurrent shard, so it
+      # gets fewer of them and the memory follows. 15_tools_serial.sh applies the
+      # same default on its own; it is repeated here because the job's --mem has
+      # to be decided at submission time, before that script runs.
+      PAR="$MAX_PARALLEL"
+      [[ "$t" == "plasme" ]] && PAR="${PLASME_PARALLEL:-2}"
+      SERIAL_CPUS=$(( PAR * CPUS_PER_TOOL ))
+      PER_SHARD_MEM="${MEM_PER_TOOL%G}"
+      [[ "$t" == "plasme" ]] && PER_SHARD_MEM="${PLASME_MEM_PER_SHARD:-32}"
+      SERIAL_MEM="$(( PAR * PER_SHARD_MEM ))G"
+      # --export rather than a prefix assignment: the value has to reach the
+      # job's environment, and sbatch's default --export=ALL only copies what is
+      # exported from this shell - a `VAR=x submit ...` prefix is not.
+      TOOL_IDS+=("$(submit \
+            "${TOOL_LABEL[$t]} (serial, $N_SHARDS shards)" "${CPU_FLAGS[@]}" \
+            --export="ALL,TOOL_PARALLEL=$PAR" \
+            --cpus-per-task="$SERIAL_CPUS" --mem="$SERIAL_MEM" \
+            --time="${TIME_TOOLS_SERIAL:-1-00:00:00}" \
+            --dependency="afterok:$SHARD_ID" \
+            "$HERE/15_tools_serial.sh" "$t")")
+    else
+      PAR="$MAX_PARALLEL"
+      TFLAGS=("${TOOL_FLAGS[@]}")
+      if [[ "$t" == "plasme" ]]; then
+        PAR="${PLASME_PARALLEL:-2}"
+        TFLAGS=(--cpus-per-task="$CPUS_PER_TOOL" --mem="${PLASME_MEM_PER_SHARD:-32}G"
+                --time="${TIME_PLASME:-04:00:00}")
+      fi
+      TOOL_IDS+=("$(submit "${TOOL_LABEL[$t]}[$N_SHARDS]" "${CPU_FLAGS[@]}" \
+            "${TFLAGS[@]}" --array="1-${N_SHARDS}%${PAR}" \
+            --dependency="afterok:$SHARD_ID" "$HERE/${TOOL_SCRIPT[$t]}")")
+    fi
+  done
   SMOKE_ID="$(submit "13_smoke_tools" "${CPU_FLAGS[@]}" \
                      --cpus-per-task="$CPUS_PER_TOOL" --mem="$MEM_PER_TOOL" \
                      --time=03:00:00 --dependency="afterok:$SHARD_ID" \
                      "$HERE/13_smoke_tools.sh")"
+  DEP="$SMOKE_ID"
+  for id in "${TOOL_IDS[@]}"; do DEP="$DEP:$id"; done
   COLLECT_ID="$(submit "14_collect_score" "${CPU_FLAGS[@]}" --cpus-per-task=4 \
                        --mem=16G --time=01:00:00 \
-                       --dependency="afterok:$PLATON_ID:$MOB_ID:$SMOKE_ID" \
+                       --dependency="afterok:$DEP" \
                        "$HERE/14_collect_score.sh")"
   TOOLS_LAST="$COLLECT_ID"
+
+  # The fifth baseline. No dependency on the sharding: it trains, so it reads the
+  # dataset itself. Skipped when TOOLS was narrowed to specific published tools,
+  # since a narrowed TOOLS means "add this one tool", not "retrain everything".
+  if [[ "$TOOLS" == "$ALL_TOOLS" || -n "${RUN_ZOU:-}" ]]; then
+    ZOU_ID="$(submit "18_zou (retrain)" "${CPU_FLAGS[@]}" \
+                     --cpus-per-task="$ZOU_CPUS" --mem="$ZOU_MEM" --time="$TIME_ZOU" \
+                     "$HERE/18_zou.sh")"
+    TOOLS_LAST="$TOOLS_LAST:$ZOU_ID"
+  else
+    echo "    (18_zou skipped: TOOLS was narrowed. Set RUN_ZOU=1 to retrain it too)"
+  fi
 fi
 
 ESM_LAST=""
@@ -126,7 +186,7 @@ if [[ "$WHAT" == "all" || "$WHAT" == "esm" ]]; then
 fi
 
 DEPS=""
-for id in $TOOLS_LAST $ESM_LAST; do
+for id in ${TOOLS_LAST//:/ } $ESM_LAST; do
   [[ -n "$id" && "$id" != "0" ]] && DEPS="${DEPS:+$DEPS:}$id"
 done
 if [[ -n "$DEPS" ]]; then

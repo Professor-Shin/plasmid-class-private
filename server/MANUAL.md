@@ -5,9 +5,9 @@
 
 | | |
 |---|---|
-| **งานที่จะรัน** | เพิ่ม baseline Platon + MOB-suite และรัน ESM-2 แบบปลดคอขวดทั้งหมด |
-| **เวลารวม** | ~2 ชม. งานคน (ส่วนใหญ่คือรอดาวน์โหลด) + ~8-14 ชม. งานเครื่อง |
-| **พื้นที่** | ~24 GB ใน `/data/project/...` |
+| **งานที่จะรัน** | baseline 5 ตัว (Platon, MOB-suite, PLASMe, PlasmidHunter, Zou et al.) + ESM-2 แบบปลดคอขวด |
+| **เวลารวม** | ~2.5 ชม. งานคน (ส่วนใหญ่คือรอดาวน์โหลด DB ของ PLASMe 12.4 GB) + ~14-24 ชม. งานเครื่อง |
+| **พื้นที่** | ~55 GB ใน `/data/project/...` (เพิ่มจาก 24 GB เพราะ DB ของ PLASMe ~16 GB หลัง index + env อีก 2 ตัว) |
 | **ต้องมีก่อน** | บัญชี CU-AIM ที่ public key ถูกอนุมัติแล้ว + Cisco AnyConnect VPN |
 
 **แผนที่ทั้งหมด** — ขั้น 0-4 ทำครั้งเดียว ขั้น 5-6 คือรอบการรันจริง
@@ -15,10 +15,10 @@
 ```
 0. ครั้งแรกสุด (VPN / ssh key / VS Code)
 1. probe เครื่อง  ->  กรอก env.sh          [~10 นาที]
-2. clone + ติดตั้ง env + ดาวน์โหลด DB      [~30-60 นาที, ส่วนใหญ่รอโหลด]
+2. clone + ติดตั้ง env 5 ตัว + ดาวน์โหลด DB 4 ชุด  [~1.5-2.5 ชม. ส่วนใหญ่รอโหลด]
 3. ส่ง dataset ขึ้น (รันบนโน้ตบุ๊ก)         [~20-40 นาที ขึ้นกับเน็ต]
 4. ตรวจว่าข้อมูลมาครบ                      [~5 นาที]
-5. submit งานทั้งหมด + ติดตาม               [~8-14 ชม. เครื่องทำ]
+5. submit งานทั้งหมด + ติดตาม               [~14-24 ชม. เครื่องทำ]
 6. เก็บผลกลับมา
 ```
 
@@ -404,8 +404,12 @@ sacct -u "$USER" --start=$(date -d '1 day ago' +%F) -o JobID,JobName%18,State,El
 
 ```
 server/logs/shard-<jobid>.out              ขั้นแบ่ง shard
-server/logs/platon-<arrayid>_<task>.out    1 ไฟล์ต่อ shard
+server/logs/platon-<arrayid>_<task>.out    1 ไฟล์ต่อ shard (โหมด array)
 server/logs/mobsuite-<arrayid>_<task>.out
+server/logs/plasme-<arrayid>_<task>.out
+server/logs/plasmidhunter-<arrayid>_<task>.out
+server/logs/<tool>-serial-<NNN>.out        1 ไฟล์ต่อ shard (โหมด serial — ที่ใช้จริง)
+server/logs/zou-<jobid>.out                baseline ตัวที่ 5 (ตัวเดียวที่ต้องเทรน)
 server/logs/smoke-tools-<jobid>.out        ประตูกั้น (สำคัญที่สุด ดูข้อถัดไป)
 server/logs/esm-embed-<jobid>.out          ภาพรวม
 server/logs/esm-embed-<jobid>-<split>-shard<N>.out   ละเอียดต่อ shard
@@ -415,21 +419,31 @@ server/logs/report_<วันเวลา>.md             ผลลัพธ์�
 
 ### จุดที่ต้องดูให้แน่ใจว่าผ่าน
 
-**`13_smoke_tools`** คือประตูกั้น ถ้า fail `14_collect_score` จะไม่รัน มันตรวจ 4 อย่าง:
+**`13_smoke_tools`** คือประตูกั้น ถ้า fail `14_collect_score` จะไม่รัน มันตรวจ 6 อย่าง:
 
 ```
-1/4  สร้าง input ทดสอบ 20 fragment (plasmid 10 / chromosome 10)
-2/4  platon รันได้ + header ของ TSV เป็นอย่างไร
-3/4  mob_recon รันได้ + header ของ contig_report
-4/4  กฎ accuracy ที่คำนวณย้อนหลัง == platon --mode accuracy ของจริง
+1/6  สร้าง input ทดสอบ 20 fragment (plasmid 10 / chromosome 10)
+2/6  platon รันได้ + header ของ TSV เป็นอย่างไร
+3/6  mob_recon รันได้ + header ของ contig_report
+4/6  PLASMe รันได้ + มี PLASMe_candidate.csv กับ _report.csv
+5/6  PlasmidHunter รันได้ + predictions.tsv อ่านได้ + class == argmax ของ probability
+6/6  กฎที่คำนวณย้อนหลังตรงของจริง 2 ชุด:
+       platon accuracy == platon --mode accuracy
+       PLASMe balance  == _report.csv ของ PLASMe เอง
 ```
 
 ต้องเห็นท้ายสุด:
 
 ```
 PASS: the re-derived 'accuracy' rule reproduces Platon's own classification exactly.
-=== smoke test passed - both tools work and the single-pass Platon design holds
+PASS: the re-derived 'balance' rule reproduces PLASMe's own classification exactly.
+PASS: class column agrees with its own probabilities; ...
+=== smoke test passed - all four tools work and both single-pass designs hold
 ```
+
+> กฎของ PLASMe ถูกตรวจ**อีกครั้งกับทุก shard** ตอน `collect_plasme.py` เพราะ PLASMe
+> เขียน `_report.csv` ของตัวเองไว้ทุก shard อยู่แล้ว ตรวจฟรี — ประตูกั้นนี้มีไว้ให้รู้ใน
+> 2 นาที ไม่ใช่ 2 ชั่วโมง
 
 **`22_esm_train`** ตรวจ 2 อย่างก่อนเทรน:
 
@@ -452,15 +466,22 @@ PASS: the re-derived 'accuracy' rule reproduces Platon's own classification exac
 | job | QoS | เวลาที่คาด |
 |---|---|---|
 | `10_shard` | `cpu40h` | ~1 นาที (ทดสอบบนโน้ตบุ๊กแล้ว 3 วินาที) |
-| `11_platon[116]` | `cpu40h`, 8 cpu × 5 ขนาน | ~1.5-2 ชม. |
-| `12_mobsuite[116]` | `cpu40h`, 8 cpu × 5 ขนาน | ~1.5-2.5 ชม. |
-| `13_smoke_tools` | `cpu40h` | ~20-40 นาที |
-| `14_collect_score` | `cpu40h` | ~2 นาที |
+| `11_platon[116]` | `cpu40h`, 8 cpu × 5 ขนาน | ~1 ชม. (วัดจริงรอบก่อน: 58 นาที) |
+| `12_mobsuite[116]` | `cpu40h`, 8 cpu × 5 ขนาน | ~10 นาที (วัดจริงรอบก่อน) |
+| `16_plasme[116]` | `cpu40h`, 8 cpu × **2** ขนาน | ~4-10 ชม. (ยังไม่เคยวัด — blastn ชน DB 12 GB) |
+| `17_plasmidhunter[116]` | `cpu40h`, 8 cpu × 5 ขนาน | ~1-3 ชม. (ยังไม่เคยวัด) |
+| `13_smoke_tools` | `cpu40h` | ~30-60 นาที (เพิ่ม PLASMe + PlasmidHunter) |
+| `14_collect_score` | `cpu40h` | ~3 นาที |
+| `18_zou` (เทรนใหม่) | `cpu40h`, 16 cpu | ~1-3 ชม. (นับ 6-mer 2.4 Gbp แล้วเทรน 12 โมเดล) |
 | `20_esm_embed` | `gpu40g` | ~2-6 ชม. (8.79 M ORFs / 2.13 G กรดอะมิโน) |
 | `21_esm_merge` | `cpu40h` | ~5-15 นาที (เขียน 5.2 GiB) |
 | `22_esm_train` | `gpu40g` | ~2-5 ชม. (4 variant × 2 regime × 5 seed) |
 
-เวลาของสองเครื่องมือและ GPU เป็น**ประมาณการ** ยังไม่ได้ยืนยันกับเครื่องจริง ถ้า job ชน time limit
+> **PLASMe ขนานแค่ 2 shard ไม่ใช่ 5** เพราะแต่ละ shard เปิด BLAST DB ขนาด 12 GB ค้างไว้
+> คอขวดคือหน่วยความจำไม่ใช่ CPU ปรับได้ด้วย `PLASME_PARALLEL=<n>` และ
+> `PLASME_MEM_PER_SHARD=<GB>` (ค่าตั้งต้น 2 และ 32)
+
+เวลาของเครื่องมือและ GPU เป็น**ประมาณการ** ยังไม่ได้ยืนยันกับเครื่องจริง ถ้า job ชน time limit
 ดู [ภาคผนวก B](#ภาคผนวก-b--job-ตายหรือชน-time-limit) — ออกแบบให้ resume ได้ทุกตัว
 
 ---
@@ -492,10 +513,15 @@ rsync -av -e "ssh -i ~/.ssh/id_rsa_cuaim" \
 
 | ไฟล์ | คืออะไร |
 |---|---|
-| `baseline/results_mixed/tool_baselines.csv` | ตารางคะแนน Platon (3 mode) + MOB-recon |
+| `baseline/results_mixed/tool_baselines.csv` | ตารางคะแนนเครื่องมือทั้ง 4 ตัว ทุก mode × ทุก policy |
 | `baseline/results_mixed/tool_baselines.json` | รายละเอียดครบ รวม breakdown ตาม length bucket |
+| `baseline/results_mixed/tool_runtime.csv` | **เวลา/CPU/หน่วยความจำที่แต่ละเครื่องมือใช้** |
 | `baseline/results_mixed/predictions_platon_test.csv` | ผลระดับ fragment + RDS + hallmark ทุกคอลัมน์ |
 | `baseline/results_mixed/predictions_mobsuite_test.csv` | ผลระดับ fragment + cluster + mash distance |
+| `baseline/results_mixed/predictions_plasme_test.csv` | ผลระดับ fragment + identity/coverage + Transformer probability |
+| `baseline/results_mixed/predictions_plasmidhunter_test.csv` | ผลระดับ fragment + posterior ทั้งสองคลาส |
+| `baseline/results_mixed/zou_mixed.csv` | Zou et al. เทรนใหม่บน dataset นี้ (2 variant × 2 regime) |
+| `analysis/results/dataset_*.csv` | สถิติ dataset ที่รายงานอ้างอิง (class balance, length, GC, shard composition, taxonomy) |
 | `esm2-attention/results_server/esm2_variants.csv` | ESM-2 ladder × 2 regime × checkpoint |
 | `esm2-attention/results_server/esm2_by_length.csv` | ESM-2 แยกตาม length bucket |
 | `esm2-attention/results_server/summary.md` | เทียบ ESM-2 กับ baseline ทั้งหมด |

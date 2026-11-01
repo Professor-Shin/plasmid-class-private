@@ -1,6 +1,6 @@
 #!/bin/bash -l
-# One-time setup: creates the three conda environments in project storage and
-# downloads the two tool databases plus the ESM-2 weights.
+# One-time setup: creates the five conda environments in project storage and
+# downloads the four tool databases plus the ESM-2 weights.
 #
 # Run it inside a small CPU allocation, NOT bare on the login node. The manual
 # (2.1) reserves the login node for file management and submission, and a
@@ -18,9 +18,17 @@
 # Safe to re-run: every step is skipped if its output already exists, so an
 # interrupted download or a failed solve can simply be retried.
 #
-# Why three environments: MOB-suite pins numpy<1.23.5 and pandas<=1.5.3, which
+# Why five environments: MOB-suite pins numpy<1.23.5 and pandas<=1.5.3, which
 # cannot coexist with the numpy 2.4.4 / pandas 3.0.2 this project's own code is
-# pinned to, and Platon pins its own biopython and blast versions on top.
+# pinned to; Platon pins its own biopython and blast versions on top; PLASMe
+# needs Python 3.9 with torch and its own BLAST/DIAMOND; and PlasmidHunter's
+# setup.py demands `python_requires == 3.10.*` with numpy==1.25.0 and
+# scikit-learn==1.3.2 exactly. No two of those five sets of pins are satisfiable
+# together, which is why each tool gets its own prefix rather than one shared env.
+#
+# Disk: envs ~14 GB, databases ~22 GB (Platon 2.8 + MOB 2.9 + PLASMe ~16 once the
+# 12.4 GB archive is expanded and indexed + PlasmidHunter ~0.4), ESM weights
+# 0.2 GB. The PLASMe archive is deleted after its indexes are built.
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -95,7 +103,7 @@ create_env() {         # create_env <prefix> <description> <packages...>
 
 mark_ok() { touch "$1/.setup_ok"; }
 
-banner "1/6  conda environment: plasmid-ml (this project's own code + ESM-2)"
+banner "1/10  conda environment: plasmid-ml (this project's own code + ESM-2)"
 # Python 3.11, not 3.13: it pairs with the glibc-2.17 torch 2.5.1 wheel selected below
 create_env "$ENV_ML" "plasmid-ml" python=3.11
 
@@ -170,17 +178,82 @@ PY
 echo "  wrote server/plasmid-ml-server.lock.txt ($(wc -l < "$REPO/server/plasmid-ml-server.lock.txt") packages) - commit it"
 mark_ok "$ENV_ML"
 
-banner "2/6  conda environment: platon (pulls prodigal, diamond, hmmer, blast, mummer)"
+banner "2/10  conda environment: platon (pulls prodigal, diamond, hmmer, blast, mummer)"
 create_env "$ENV_PLATON" "platon" platon
 # Verify the binary actually runs before marking the env done, so a half-failed
 # solve is rebuilt on the next run instead of silently skipped.
 "$ENV_PLATON/bin/platon" --help >/dev/null 2>&1 && mark_ok "$ENV_PLATON"   || { echo "FATAL: platon did not install correctly in $ENV_PLATON" >&2; exit 1; }
 
-banner "3/6  conda environment: mobsuite (pulls blast+, mash)"
+banner "3/10  conda environment: mobsuite (pulls blast+, mash)"
 create_env "$ENV_MOB" "mobsuite" mob_suite
 "$ENV_MOB/bin/mob_recon" --help >/dev/null 2>&1 && mark_ok "$ENV_MOB"   || { echo "FATAL: mob_recon did not install correctly in $ENV_MOB" >&2; exit 1; }
 
-banner "4/6  Platon database"
+banner "4/10  conda environment: plasme (Python 3.9 + BLAST + DIAMOND + prodigal)"
+# PLASMe is distributed as a git checkout, not a package: PLASMe.py imports
+# bio_script, trans_model and trans_data as sibling modules, so the repository
+# itself has to be on disk and invoked by path.
+if [[ -d "$PLASME_DIR/.git" ]]; then
+  echo "  SKIP  $PLASME_DIR already cloned ($(git -C "$PLASME_DIR" rev-parse --short HEAD))"
+else
+  mkdir -p "$(dirname "$PLASME_DIR")"
+  git clone --depth 1 --branch "$PLASME_REPO_REF" "$PLASME_REPO_URL" "$PLASME_DIR"
+fi
+echo "  PLASMe commit: $(git -C "$PLASME_DIR" rev-parse HEAD) ($(git -C "$PLASME_DIR" log -1 --format=%cI))"
+
+# Upstream's plasme.yaml pins pytorch=1.11.0 WITH cudatoolkit=10.2.89, a ~2 GB
+# GPU runtime this cluster has no use for (PLASMe runs on the CPU partition
+# here - see 16_plasme.sh) and which conda would have to solve against a CUDA
+# 12.4 driver. The binaries that decide PLASMe's output - BLAST, DIAMOND,
+# prodigal - are pinned to upstream's versions; torch is installed separately
+# below, because the solve for it is the fragile part and pip is deterministic.
+create_env "$ENV_PLASME" "plasme" python=3.9 \
+    "blast=2.13.0" "diamond=2.0.15" "prodigal=2.6.3" \
+    "biopython=1.80" "numpy=1.23" "pandas=1.5" requests
+
+# torch capped BELOW 2.6 for two independent reasons, either of which alone
+# would be enough: glibc 2.17 (see the ENV_ML section above - 2.6+ wheels are
+# manylinux_2_28 and will not load), and torch 2.6 flipping `torch.load`'s
+# weights_only default to True, which refuses the pickled state dicts in
+# PLASMe's DB/trans_model/*.pt. The CPU wheel index is deliberate: a CUDA build
+# would pull ~2.5 GB of runtime the CPU partition never touches.
+if ! "$ENV_PLASME/bin/python" -c "import torch" 2>/dev/null; then
+  echo "  installing torch==2.5.1 (CPU wheel index) into the plasme env"
+  "$ENV_PLASME/bin/python" -m pip install --no-cache-dir --only-binary=:all: \
+      --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1"
+else
+  echo "  SKIP  torch already installed in the plasme env"
+fi
+"$ENV_PLASME/bin/python" - <<'PY'
+import torch
+major, minor = (int(x) for x in torch.__version__.split(".")[:2])
+assert (major, minor) < (2, 6), (
+    f"torch {torch.__version__} defaults torch.load(weights_only=True), which "
+    "cannot read PLASMe's pickled Transformer checkpoints. Pin it below 2.6.")
+print(f"  torch {torch.__version__} (CPU), torch.load default is safe for PLASMe")
+PY
+for exe in blastn makeblastdb diamond prodigal; do
+  "$ENV_PLASME/bin/$exe" -h >/dev/null 2>&1 || "$ENV_PLASME/bin/$exe" --help >/dev/null 2>&1 \
+    || { echo "FATAL: $exe did not install correctly in $ENV_PLASME" >&2; exit 1; }
+done
+mark_ok "$ENV_PLASME"
+
+banner "5/10  conda environment: plasmidhunter (Python 3.10 + DIAMOND + prodigal)"
+# setup.py says python_requires == 3.10.*, numpy == 1.25.0, scikit-learn == 1.3.2
+# - exact pins, not ranges, so this env can hold nothing else of ours. diamond is
+# pinned to 2.1.8 because the README names that version and a DIAMOND database
+# built by one major version is not readable by an older one.
+create_env "$ENV_PH" "plasmidhunter" python=3.10 "diamond=2.1.8" prodigal
+if ! "$ENV_PH/bin/python" -c "import PlasmidHunter" 2>/dev/null; then
+  "$ENV_PH/bin/python" -m pip install --no-cache-dir plasmidhunter
+else
+  echo "  SKIP  plasmidhunter already installed"
+fi
+"$ENV_PH/bin/plasmidhunter" -h >/dev/null 2>&1 \
+  || { echo "FATAL: plasmidhunter did not install correctly in $ENV_PH" >&2; exit 1; }
+echo "  plasmidhunter version: $("$ENV_PH/bin/python" -c 'import importlib.metadata as m; print(m.version("plasmidhunter"))' 2>&1 | head -1)"
+mark_ok "$ENV_PH"
+
+banner "6/10  Platon database"
 # Platon's database is versioned separately from the tool and an older Platon
 # cannot read a newer database, so the tool version is recorded next to the DB.
 # A sentinel, not "the directory has something in it": a download or extraction
@@ -217,7 +290,7 @@ echo "        read the latest database. If the version above does not match the"
 echo "        database in env.sh, check the project GitHub for the current database"
 echo "        and re-run with PLATON_DB_URL=<new url>."
 
-banner "5/6  MOB-suite database"
+banner "7/10  MOB-suite database"
 if [[ -f "$MOB_DB/.setup_ok" ]]; then
   echo "  SKIP  $MOB_DB already populated and verified ($(du -sh "$MOB_DB" | cut -f1))"
 else
@@ -252,7 +325,110 @@ else
 fi
 echo "  mob_recon version: $("$ENV_MOB/bin/mob_recon" --version 2>&1 | head -1 || echo unknown)"
 
-banner "6/6  pre-download ESM-2 weights (compute nodes may have no internet)"
+banner "8/10  PLASMe database (12.4 GB download, ~16 GB once indexed)"
+# PLASMe_db.py downloads with `requests` into whatever directory the script sits
+# in and refuses to resume a partial file, so the download is done with curl -C -
+# here and only the indexing is left to PLASMe's own code path. The md5 is the
+# one PLASMe_db.py itself verifies against; a truncated 12 GB download that
+# still unzips would otherwise be discovered 116 shards later.
+if [[ -f "$PLASME_DB/.setup_ok" ]]; then
+  echo "  SKIP  $PLASME_DB already populated and verified ($(du -sh "$PLASME_DB" | cut -f1))"
+else
+  mkdir -p "$PLASME_DB"
+  ZIP="$PROJECT/tmp/PLASMe-DB.zip"
+  if [[ ! -f "$PLASME_DB/plsdb_Mar30.dmnd" ]]; then
+    if [[ ! -s "$ZIP" ]] || [[ "$(md5sum "$ZIP" | cut -d' ' -f1)" != "$PLASME_DB_MD5" ]]; then
+      echo "  downloading $PLASME_DB_URL (12.4 GB; resumable, safe to re-run)"
+      curl -fL --retry 5 --retry-delay 10 -C - -o "$ZIP" "$PLASME_DB_URL"
+      echo "  verifying md5 (expected $PLASME_DB_MD5)"
+      GOT="$(md5sum "$ZIP" | cut -d' ' -f1)"
+      if [[ "$GOT" != "$PLASME_DB_MD5" ]]; then
+        echo "FATAL: PLASMe DB.zip md5 is $GOT, expected $PLASME_DB_MD5." >&2
+        echo "       Delete $ZIP and re-run; curl -C - resumes, so a half file" >&2
+        echo "       that keeps failing means the mirror changed, not the link." >&2
+        exit 1
+      fi
+    else
+      echo "  SKIP  $ZIP already downloaded and md5-verified"
+    fi
+    echo "  extracting into $PLASME_DB"
+    # The archive contains a single DB/ directory; unpack to tmp and move its
+    # contents up, so PLASME_DB can be anywhere rather than having to be a
+    # directory literally named DB next to PLASMe.py.
+    rm -rf "$PROJECT/tmp/plasme-db-extract"
+    mkdir -p "$PROJECT/tmp/plasme-db-extract"
+    unzip -q "$ZIP" -d "$PROJECT/tmp/plasme-db-extract"
+    SRC="$(find "$PROJECT/tmp/plasme-db-extract" -maxdepth 2 -type d -name DB | head -1)"
+    [[ -n "$SRC" ]] || { echo "FATAL: no DB/ directory inside the archive" >&2; exit 1; }
+    mv "$SRC"/* "$PLASME_DB"/
+    rm -rf "$PROJECT/tmp/plasme-db-extract"
+
+    # The inner plsdb.zip holds the reference FASTA and its protein translation;
+    # PLASMe builds the BLAST and DIAMOND indexes from them and then deletes
+    # both. Doing it HERE, once on the login node, is the whole point: left to
+    # itself PLASMe builds the index on first use, and 116 array tasks starting
+    # together would each try to build the same 12 GB index into the same path.
+    echo "  building the BLAST and DIAMOND indexes (several minutes)"
+    PATH="$ENV_PLASME/bin:$PATH" "$ENV_PLASME/bin/python" - "$PLASME_DB" "${SLURM_CPUS_PER_TASK:-8}" <<'PY'
+import subprocess, shutil, sys, os
+db_dir, threads = sys.argv[1], sys.argv[2]
+inner = os.path.join(db_dir, "plsdb.zip")
+if os.path.exists(inner):
+    print(f"  unpacking {inner}")
+    shutil.unpack_archive(inner, db_dir)
+    os.remove(inner)
+for cmd in (f"diamond makedb --in {db_dir}/plsdb_Mar30.fna.aa -d {db_dir}/plsdb_Mar30 -p {threads}",
+            f"makeblastdb -in {db_dir}/plsdb_Mar30.fna -dbtype nucl -out {db_dir}/plsdb_Mar30"):
+    print(f"  $ {cmd}")
+    subprocess.run(cmd, shell=True, check=True)
+for leftover in ("plsdb_Mar30.fna", "plsdb_Mar30.fna.aa"):
+    path = os.path.join(db_dir, leftover)
+    if os.path.exists(path):
+        os.remove(path)
+PY
+    rm -f "$ZIP"
+  fi
+  for f in plsdb_Mar30.dmnd plsdb_taxon.tsv plas_overlap.csv; do
+    [[ -e "$PLASME_DB/$f" ]] || { echo "FATAL: $PLASME_DB/$f is missing after the build" >&2; exit 1; }
+  done
+  [[ -d "$PLASME_DB/trans_model" ]] || { echo "FATAL: $PLASME_DB/trans_model is missing" >&2; exit 1; }
+  echo "  Transformer checkpoints: $(ls "$PLASME_DB/trans_model" | wc -l) (one per taxonomic order, plus unified)"
+  mark_ok "$PLASME_DB"
+fi
+{
+  echo "database url: $PLASME_DB_URL"
+  echo "md5:          $PLASME_DB_MD5"
+  echo "PLASMe commit: $(git -C "$PLASME_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "built:        $(date -Is)"
+} > "$PLASME_DB/PROVENANCE.txt"
+
+banner "9/10  PlasmidHunter database (DIAMOND, ~0.4 GB)"
+# PlasmidHunter downloads this into its OWN site-packages the first time it is
+# run, with no locking and no resume. On a compute node with no internet that is
+# a hard failure, and with internet it is 116 simultaneous downloads into one
+# path. Fetching it here removes both; 17_plasmidhunter.sh refuses to start
+# until it is in place.
+PH_PKG="$("$ENV_PH/bin/python" -c 'import os, PlasmidHunter; print(os.path.dirname(PlasmidHunter.__file__))')"
+PH_DB_DIR="$PH_PKG/database"
+if [[ -s "$PH_DB_DIR/database.dmnd" ]]; then
+  echo "  SKIP  $PH_DB_DIR/database.dmnd already present ($(du -h "$PH_DB_DIR/database.dmnd" | cut -f1))"
+else
+  mkdir -p "$PH_DB_DIR"
+  echo "  downloading $PH_DB_URL"
+  curl -fL --retry 5 --retry-delay 10 -C - -o "$PH_DB_DIR/database.dmnd.gz" "$PH_DB_URL"
+  gunzip -f "$PH_DB_DIR/database.dmnd.gz"
+  [[ -s "$PH_DB_DIR/database.dmnd" ]] || { echo "FATAL: PlasmidHunter database did not unpack" >&2; exit 1; }
+  echo "  installed $PH_DB_DIR/database.dmnd ($(du -h "$PH_DB_DIR/database.dmnd" | cut -f1))"
+fi
+# A DIAMOND database built by a newer major version cannot be read by an older
+# one, and this file was built by whoever published it - so check it opens with
+# the diamond in THIS environment rather than finding out 116 shards in.
+"$ENV_PH/bin/diamond" dbinfo --db "$PH_DB_DIR/database.dmnd" 2>&1 | sed 's/^/  dbinfo| /' \
+  || { echo "FATAL: diamond $("$ENV_PH/bin/diamond" --version 2>&1 | head -1) cannot read" >&2
+       echo "       $PH_DB_DIR/database.dmnd - the published database was built by a" >&2
+       echo "       different DIAMOND major version. Pin diamond to match it." >&2; exit 1; }
+
+banner "10/10  pre-download ESM-2 weights (compute nodes may have no internet)"
 "$ENV_ML/bin/python" "$HERE/_cache_esm_weights.py"
 
 # Record the exact CLI of both tools. The collectors parse output BY COLUMN NAME
@@ -261,7 +437,8 @@ banner "6/6  pre-download ESM-2 weights (compute nodes may have no internet)"
 HELPLOG="$SERVER_LOGS/tool_help_$(date +%Y%m%d).txt"
 {
   echo "### captured $(date -Is) on $(hostname)"
-  for exe in "$ENV_PLATON/bin/platon" "$ENV_MOB/bin/mob_recon" "$ENV_MOB/bin/mob_init"; do
+  for exe in "$ENV_PLATON/bin/platon" "$ENV_MOB/bin/mob_recon" "$ENV_MOB/bin/mob_init" \
+             "$ENV_PH/bin/plasmidhunter"; do
     echo
     echo "### $exe --version"
     "$exe" --version 2>&1 | head -3 || true
@@ -269,11 +446,17 @@ HELPLOG="$SERVER_LOGS/tool_help_$(date +%Y%m%d).txt"
     echo "### $exe --help"
     "$exe" --help 2>&1 || true
   done
+  echo
+  echo "### PLASMe (git checkout, invoked by path)"
+  echo "commit $(git -C "$PLASME_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  "$ENV_PLASME/bin/python" "$PLASME_DIR/PLASMe.py" --version 2>&1 | head -3 || true
+  "$ENV_PLASME/bin/python" "$PLASME_DIR/PLASMe.py" --help 2>&1 || true
 } > "$HELPLOG"
 echo "  wrote $HELPLOG"
 
 banner "setup complete"
-du -sh "$PROJECT"/envs/* "$PLATON_DB" "$MOB_DB" "$HF_HOME" 2>/dev/null | sed 's/^/  /'
+du -sh "$PROJECT"/envs/* "$PLATON_DB" "$MOB_DB" "$PLASME_DB" "$PLASME_DIR" \
+      "$HF_HOME" 2>/dev/null | sed 's/^/  /'
 df -h "$PROJECT" | sed 's/^/  df| /'
 echo
 echo "Next steps:"

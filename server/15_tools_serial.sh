@@ -8,7 +8,9 @@
 #SBATCH --mem=64G
 #SBATCH --time=1-00:00:00
 #
-# All shards of one tool inside ONE Slurm job, instead of a 116-element array.
+# All shards of ONE tool inside ONE Slurm job, instead of a 116-element array.
+#
+#   bash/sbatch server/15_tools_serial.sh platon|mobsuite|plasme|plasmidhunter
 #
 # Why this exists: cpu40h rejects the array with QOSMaxSubmitJobPerUserLimit,
 # because every array element counts as a submitted job against that limit.
@@ -36,10 +38,23 @@ source server/lib.sh
 
 TOOL="${1:-${TOOL:-platon}}"
 case "$TOOL" in
-  platon)   SCRIPT="server/11_platon.sh" ;;
-  mobsuite) SCRIPT="server/12_mobsuite.sh" ;;
-  *) echo "FATAL: usage: $0 platon|mobsuite" >&2; exit 2 ;;
+  platon)        SCRIPT="server/11_platon.sh" ;;
+  mobsuite)      SCRIPT="server/12_mobsuite.sh" ;;
+  plasme)        SCRIPT="server/16_plasme.sh" ;;
+  plasmidhunter) SCRIPT="server/17_plasmidhunter.sh" ;;
+  *) echo "FATAL: usage: $0 platon|mobsuite|plasme|plasmidhunter" >&2; exit 2 ;;
 esac
+
+# PLASMe holds a 12 GB BLAST database open per shard, so five concurrent shards
+# want far more memory than five Platon shards do. Overridable per tool rather
+# than globally, because dropping MAX_PARALLEL for everything would leave 32 of
+# the 40 CPUs idle for the three tools that do not need the headroom.
+if [[ "$TOOL" == "plasme" && -z "${TOOL_PARALLEL:-}" ]]; then
+  TOOL_PARALLEL="${PLASME_PARALLEL:-2}"
+  echo "note: defaulting PLASMe to $TOOL_PARALLEL concurrent shards (BLASTn against"
+  echo "      a 12 GB database is memory-bound, not CPU-bound). Override with"
+  echo "      TOOL_PARALLEL=<n>, and raise --mem to match if you do."
+fi
 
 MANIFEST="$SHARD_DIR/manifest.csv"
 [[ -f "$MANIFEST" ]] || { echo "FATAL: no manifest $MANIFEST - run 10_shard.sh" >&2; exit 1; }

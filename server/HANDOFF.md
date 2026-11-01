@@ -6,15 +6,30 @@
 >
 > ไฟล์นี้ sync ผ่าน git เครื่องไหนก็เหมือนกัน แก้แล้ว commit/push เพื่อให้อีกเครื่องได้ด้วย
 
-อัปเดตล่าสุด: 2026-10-26 (หลังรอบตรวจ MANUAL ↔ `survival-manual-cuaim.pdf`)
+อัปเดตล่าสุด: 2026-11-01 (เพิ่ม baseline PLASMe + PlasmidHunter + Zou เทรนใหม่)
 
 ---
 
 ## กำลังทำอะไรอยู่
 
-เพิ่ม baseline **Platon + MOB-suite** และรัน **ESM-2 แบบปลดคอขวด** บนคลัสเตอร์ **CU-AIM**
+baseline ที่ตีพิมพ์แล้ว **5 ตัว** — **Platon, MOB-suite, PLASMe, PlasmidHunter** (รันตามที่
+เผยแพร่) และ **Zou et al.** (เทรนใหม่) — บวก **ESM-2 แบบปลดคอขวด** บนคลัสเตอร์ **CU-AIM**
 (Slurm + A100 MIG, glibc 2.17) งานทั้งหมดอยู่บน GitHub:
 `Professor-Shin/plasmid-class-private` (private)
+
+**สถานะของแต่ละ baseline:**
+
+| baseline | สถานะ | หมายเหตุ |
+|---|---|---|
+| Platon | ✅ มีผลแล้ว (job 411700) | เก็บไว้ ไม่รันซ้ำ |
+| MOB-suite | ✅ มีผลแล้ว (job 411701) | เก็บไว้ ไม่รันซ้ำ |
+| PLASMe | ⬜ ยังไม่รัน | ต้องโหลด DB 12.4 GB ก่อน |
+| PlasmidHunter | ⬜ ยังไม่รัน | DB เล็ก โหลดไวกว่ามาก |
+| Zou et al. | ⚠️ มีผลแต่**ใช้ไม่ได้** | ผลเดิมเทรนบน dataset 5 kb ตัวเก่า (test n=72,332) ต้องเทรนใหม่บน mixed (`18_zou.sh`) |
+
+> `baseline/results/zou_*.json` **อย่าเอาไปใส่ตารางเดียวกับผล mixed** — คนละ dataset
+> คนละจำนวน fragment และ MCC ของมันเป็น 0.0000 เพราะโมเดลไม่เคยทำนาย positive เลย
+> ผลใหม่จะไปอยู่ `baseline/results_mixed/zou_mixed.{json,csv}`
 
 - รายละเอียดการรันทีละขั้น: **`server/MANUAL.md`**
 - เหตุผลการออกแบบ: **`server/README.md`**
@@ -30,7 +45,9 @@
 | driver CUDA | **12.4** → ใช้ wheel `cu124` |
 | python ของ env ML | **3.11** (ไม่ใช่ 3.13) |
 | QoS | `cpu40h` (40 CPU) สำหรับ Platon/MOB, `gpu40g` (1×7g.40gb, 16 CPU) สำหรับ ESM-2 |
-| conda env | อยู่ที่ `$PROJECT/envs/` ชื่อ **`plasmid-ml`**, `platon`, `mobsuite` |
+| conda env | อยู่ที่ `$PROJECT/envs/` ชื่อ **`plasmid-ml`**, `platon`, `mobsuite`, `plasme`, `plasmidhunter` |
+| DB | `$PROJECT/db/` — `platon` 2.8G, `mobsuite` 2.9G, `plasme` ~16G, PlasmidHunter อยู่ใน site-packages ของ env |
+| PLASMe | เป็น git checkout ที่ `$PROJECT/tools/PLASMe` ไม่ใช่ package — เรียกด้วย `python $PLASME_DIR/PLASMe.py` |
 
 ## กับดักที่เจอมาแล้ว (ถ้า error ให้เช็กพวกนี้ก่อน)
 
@@ -71,10 +88,18 @@
 
 job graph:
 ```
-10_shard ─┬─ 11_platon[1-116%5]   (cpu40h) ─┬─ 14_collect_score ─┐
-          ├─ 12_mobsuite[1-116%5] (cpu40h) ─┤                    ├─ 30_report
+10_shard ─┬─ 11_platon[%5]        (cpu40h) ─┬─ 14_collect_score ─┐
+          ├─ 12_mobsuite[%5]      (cpu40h) ─┤                    │
+          ├─ 16_plasme[%2]        (cpu40h) ─┤                    ├─ 30_report
+          ├─ 17_plasmidhunter[%5] (cpu40h) ─┤                    │
           └─ 13_smoke_tools (gate) ─────────┘                    │
-20_esm_embed (gpu40g) ── 21_esm_merge ── 22_esm_train (gpu40g) ──┘
+18_zou (cpu40h, 16 cpu, ไม่ขึ้นกับ shard) ────────────────────── ┤
+20_esm_embed (gpu40g) ── 21_esm_merge ── 22_esm_train (gpu40g) ─ ┘
+```
+
+เพิ่มแค่ 2 เครื่องมือใหม่โดยไม่แตะของเดิม:
+```bash
+TOOLS="plasme plasmidhunter" RUN_ZOU=1 TOOLS_MODE=serial bash server/submit_all.sh tools
 ```
 
 ## สถานะ ณ ตอนนี้ (อัปเดตเมื่อคืบหน้า)
@@ -110,14 +135,36 @@ job graph:
         (accession.version เป็น immutable — ต่างจากการรัน step01/02 ใหม่ที่จะสุ่ม genome ชุดใหม่)
 - [ ] sync dataset + `02_verify_data.sh` ผ่าน
 
+- [ ] รัน PLASMe + PlasmidHunter + Zou (เพิ่มใหม่ 2026-11-01)
+      ลำดับ: `00_setup_envs.sh` ซ้ำ (ขั้น 4,5,8,9 เป็นของใหม่ ขั้นเดิมถูก skip) → ตรวจว่า
+      `$PROJECT/db/plasme/plsdb_Mar30.dmnd` เกิดขึ้นจริง → `submit_all.sh tools`
+      **ช้าสุดคือโหลด DB ของ PLASMe 12.4 GB** — resume ได้ด้วย `curl -C -` รันซ้ำได้
+
 > อัปเดต checkbox ข้างบนเมื่อทำคืบหน้า แล้ว commit — จะได้รู้ว่าค้างตรงไหนเวลาสลับเครื่อง
 
 ## งานวิทยาศาสตร์ที่ค้างไว้ (ยังไม่ทำ รอหลังได้ผลจริง)
 
 จาก review — 3 ข้อที่ควรทำเพื่อ paper (รายละเอียดในประวัติ chat):
 1. **bootstrap CI ระดับ assembly** สำหรับ replicon MCC (test มี plasmid replicon 54 ตัว ยังน้อย)
-2. **เช็ก DB leakage** — Platon/MOB DB สร้างจาก RefSeq อาจมี test genomes ปน ดู `mash_neighbor_distance ≈ 0`
+2. **เช็ก DB leakage** — Platon/MOB/PLASMe DB สร้างจาก RefSeq/PLSDB อาจมี test genomes ปน
+   ดู `mash_neighbor_distance ≈ 0` (mob_recon) และ `identity ≈ 1.0 & coverage ≈ 1.0` (PLASMe)
+   **ข้อนี้สำคัญขึ้นมากกับ PLASMe** เพราะ PLSDB เป็น plasmid database ตรง ๆ
 3. **homology distance** — split คุมที่ Mash-ANI ≥ 0.95 แล้ว แต่ family-level (<95%) ยังควรวัด NN distance test↔train
+
+## ข้อเท็จจริงเรื่อง dataset ที่เพิ่งวัดได้ (2026-11-01) — ต้องเขียนในรายงาน
+
+`analysis/dataset_stats.py` (รันบนเครื่องไหนก็ได้ ใช้แค่ CSV):
+
+- **split สะอาด**: ไม่มี cluster และไม่มี replicon ตัวไหนอยู่ 2 split ✓
+- **แต่ assembly ข้าม split ได้** — 112 จาก 500 assembly ข้าม เพราะ split แบ่งที่ระดับ
+  replicon/cluster โครโมโซมของไอโซเลตหนึ่งอยู่ train ได้ขณะที่พลาสมิดของมันอยู่ test
+- **ผลคือ shard ของ test ส่วนใหญ่มีคลาสเดียว**: 70/116 มีแต่โครโมโซม, 42/116 มีแต่พลาสมิด,
+  มีแค่ **4 shard** ที่มีทั้งสองอย่าง มัธยฐานคือได้ replicon ของไอโซเลตนั้นมาครึ่งเดียว
+  → Platon/MOB-suite ถูกป้อน input ที่ **ไม่ใช่** draft assembly จริง ต้องเขียนข้อนี้ไว้
+  (เอกสารเดิมเขียนว่า "fragment ทั้งหมดของ assembly หนึ่งอยู่ split เดียวกัน" — **ผิด** แก้แล้ว)
+- **GC gap ติดลบและเล็กมาก**: พลาสมิด GC เฉลี่ย 0.5724 vs โครโมโซม 0.5813 ต่างกัน
+  −0.0089 = −0.076 ของ sd รวม → อธิบายว่าทำไม `gc_only` ได้ MCC −0.0145
+- **prevalence ต่างกันมากตามระดับที่วัด**: fragment 1:40, replicon 1:2.4
 
 ## วิธีต่อ "ทั้งบทสนทนา" จริง ๆ (ถ้าต้องการ ไม่ใช่แค่ context)
 
@@ -159,5 +206,19 @@ job graph:
 14. **job array ชน `QOSMaxSubmitJobPerUserLimit`** — `cpu40h` นับทุก element เป็น 1 job
     116 element จึงถูกปฏิเสธ → ใช้ `TOOLS_MODE=serial` หรือ `server/15_tools_serial.sh`
     ซึ่งวนทุก shard ใน job เดียว (5 ขนาน × 8 threads = 40 CPU เท่าเดิม)
+16. **PLASMe `exit(0)` เวลาผิดพลาด** — "Database directory does not exist" และ
+    "The output file already exists" ทั้งคู่ออกด้วย **exit code 0** ห้ามเชื่อ exit code
+    `16_plasme.sh` จึงเช็กว่ามี `PLASMe_candidate.csv` จริงไหมแทน
+17. **ผลจริงของ PLASMe อยู่ใน temp dir ไม่ใช่ output** — `<output>_report.csv` มีแต่ contig
+    ที่ตัดสินว่าเป็นพลาสมิด (และเป็น **tab-separated** ทั้งที่ชื่อ .csv) ไฟล์ที่มีทุก contig
+    คือ `<temp>/PLASMe_candidate.csv` → ห้ามลบ temp
+18. **PlasmidHunter ลบ `-o` ทิ้งก่อนเริ่มทุกครั้ง** (`shutil.rmtree`) และ**ดาวน์โหลด DB
+    ลง site-packages ของตัวเองตอนรันครั้งแรก** → ต้องโหลดไว้ก่อนบน login node ไม่งั้น
+    116 shard จะแย่งกันโหลดพร้อมกัน (หรือโหลดไม่ได้เลยถ้า compute node ไม่มีเน็ต)
+    `17_plasmidhunter.sh` จะหยุดทันทีถ้า DB ยังไม่อยู่
+19. **torch ใน env `plasme` ต้อง < 2.6** — torch 2.6 เปลี่ยน `torch.load` ให้
+    `weights_only=True` เป็นค่าตั้งต้น ซึ่งอ่าน checkpoint ของ PLASMe ไม่ได้
+    (บังเอิญตรงกับข้อจำกัด glibc 2.17 อยู่แล้ว จึง pin 2.5.1 ทั้งคู่)
+
 15. **job หนึ่งจอง 40 CPU = เพดานทั้งหมด** → อีก job ขึ้น `QOSMaxCpuPerUserLimit` และรอ
     เป็นพฤติกรรมปกติ ไม่ใช่ error (platon กับ mobsuite จึงเดินทีละตัว)

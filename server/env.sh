@@ -77,8 +77,19 @@ HERE_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${ENV_ML:=$PROJECT/envs/plasmid-ml}"
 : "${ENV_PLATON:=$PROJECT/envs/platon}"
 : "${ENV_MOB:=$PROJECT/envs/mobsuite}"
+: "${ENV_PLASME:=$PROJECT/envs/plasme}"
+: "${ENV_PH:=$PROJECT/envs/plasmidhunter}"
 : "${PLATON_DB:=$PROJECT/db/platon}"
 : "${MOB_DB:=$PROJECT/db/mobsuite}"
+# PLASMe ships as a git checkout, not a package: PLASMe.py imports bio_script,
+# trans_model and trans_data as sibling modules, so it has to be invoked by path
+# inside its own clone rather than installed into an environment.
+: "${PLASME_DIR:=$PROJECT/tools/PLASMe}"
+: "${PLASME_DB:=$PROJECT/db/plasme}"
+# PlasmidHunter downloads its DIAMOND database into its own site-packages on
+# first use. Compute nodes may have no internet, so 00_setup_envs.sh fetches it
+# on the login node and puts it exactly where the tool looks for it.
+: "${PH_DB:=$ENV_PH/lib/python3.10/site-packages/PlasmidHunter/database}"
 
 # "conda" (default) or "singularity". The manual (chapter 6) says to reach for a
 # container only when conda cannot provide compatible dependencies; run_tool() in
@@ -91,6 +102,13 @@ HERE_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # cannot read a newer database. Override if the project README names a newer one.
 : "${PLATON_DB_URL:=https://zenodo.org/record/4066768/files/db.tar.gz}"
 : "${MOB_DB_URL:=https://zenodo.org/records/10304948/files/data.tar.gz}"
+# PLASMe: the 12.4 GB archive and the md5 PLASMe_db.py itself checks against, so
+# a truncated download is caught before 116 shards are run against half a index.
+: "${PLASME_REPO_URL:=https://github.com/HubertTang/PLASMe.git}"
+: "${PLASME_REPO_REF:=main}"
+: "${PLASME_DB_URL:=https://zenodo.org/record/8046934/files/DB.zip?download=1}"
+: "${PLASME_DB_MD5:=b32263ad4fb20c04044700170b1609ef}"
+: "${PH_DB_URL:=https://zenodo.org/records/10431696/files/database.dmnd.gz?download=1}"
 
 # --------------------------------------------------- keep /data/home empty ----
 # THE trap of this whole setup: `conda create` defaults to ~/.conda/envs and pip,
@@ -117,7 +135,17 @@ export SHARD_DIR="$PROJECT/tools-baseline/shards"
 export TOOL_OUT="$PROJECT/tools-baseline/out"
 export SERVER_LOGS="$PROJECT/server/logs"
 
+# Where the retrained Zou et al. baseline writes. It is the fifth tool in the
+# comparison but the only one that is trained here, so it runs from baseline/
+# rather than tools-baseline/ and needs no database.
+: "${TIME_ZOU:=08:00:00}"
+: "${ZOU_CPUS:=16}"
+: "${ZOU_MEM:=64G}"
+
 export PROJECT CUAIM_ACCOUNT QOS_CPU PART_CPU CPUS_PER_TOOL MAX_PARALLEL \
        MEM_PER_TOOL TIME_PER_TOOL QOS_GPU PART_GPU GRES_GPU GPU_CPUS GPU_MEM \
        TIME_EMBED TIME_TRAIN MODULE_CONDA MODULE_CUDA ENV_ML ENV_PLATON ENV_MOB \
-       PLATON_DB MOB_DB TOOL_RUNTIME SIF_PLATON SIF_MOB PLATON_DB_URL MOB_DB_URL
+       ENV_PLASME ENV_PH PLASME_DIR PLASME_DB PH_DB \
+       PLATON_DB MOB_DB TOOL_RUNTIME SIF_PLATON SIF_MOB PLATON_DB_URL MOB_DB_URL \
+       PLASME_REPO_URL PLASME_REPO_REF PLASME_DB_URL PLASME_DB_MD5 PH_DB_URL \
+       TIME_ZOU ZOU_CPUS ZOU_MEM
