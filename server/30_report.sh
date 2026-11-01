@@ -8,11 +8,15 @@
 #SBATCH --mem=16G
 #SBATCH --time=02:00:00
 #
-# The last step: one table holding every baseline plus the ESM-2 ladder.
+# The last step: one document holding the dataset statistics, every baseline and
+# the ESM-2 ladder.
 #
-# gc_signal.py answers "is the signal just GC?" and dump_tables.py renders every
-# artefact as markdown. Both read the _mixed directory names by default, so
-# ESM_RESULTS points them at the server run's output.
+# dataset_stats.py computes the dataset section (class balance at three levels,
+# length and GC by class, what a per-assembly shard actually contains, taxonomy,
+# and the split-integrity check), gc_signal.py answers "is the signal just GC?",
+# and dump_tables.py renders every artefact as markdown. The last two read the
+# _mixed directory names by default, so ESM_RESULTS points them at the server
+# run's output.
 
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
@@ -27,6 +31,14 @@ cd "$PROJECT"
 mkdir -p "$SERVER_LOGS"
 OUT="$SERVER_LOGS/report_$(date +%Y%m%d_%H%M).md"
 
+echo "--- dataset statistics"
+# Reads only the split CSVs, so this is the one section that is always available
+# and always current. It exits non-zero if a cluster or replicon turns up in two
+# splits, which would invalidate every result below it - so that failure is NOT
+# swallowed.
+srun python -u analysis/dataset_stats.py
+
+echo
 echo "--- GC-signal analysis"
 # Analyse the run this report is about. results_mixed from the laptop is tracked
 # in git, so without these overrides gc_signal.py would quietly describe the

@@ -1,12 +1,23 @@
 """Split one dataset split into per-assembly FASTA files, one per Slurm array task.
 
 Why per assembly and not per fragment or one big file: Platon and MOB-recon are
-built to take *the contigs of one draft assembly*. The mixed-length dataset splits
-at cluster/replicon level, so every fragment of an assembly is in the same split
-and the fragments tile each replicon without overlap - which means an assembly's
-fragments are precisely a fragmented draft assembly of that isolate. Feeding them
-together is therefore the faithful use of both tools, and it also happens to give
-116 shards of roughly one genome each, which is a convenient array size.
+built to take *the contigs of one draft assembly*, so the fragments of one
+isolate belong together rather than scattered among unrelated sequences. The
+fragments tile each replicon without overlap, so a shard really is a contig set
+rather than an arbitrary batch.
+
+What a shard is NOT, and this matters when reading the results: a complete draft
+assembly. The dataset splits at cluster/replicon level, not assembly level, so an
+isolate's chromosome and its plasmids can land in different splits - 112 of the
+500 assemblies do span splits. In the test split that leaves 70 of 116 shards
+holding only chromosome fragments, 42 holding only plasmid fragments, and 4
+holding both, with a median of half the isolate's replicons present. A
+plasmid-only shard is an easier input than a real assembly and a chromosome-only
+shard a harder one, and neither is the input these tools were designed for.
+`analysis/dataset_stats.py` measures this (dataset_shard_composition.csv) and the
+report carries the table next to the tool results.
+
+116 shards of a few Mbp each is also a convenient array size.
 
 Outputs in shard_dir:
     <assembly_accession>.fasta   the shard, FASTA with fragment ids as contig ids

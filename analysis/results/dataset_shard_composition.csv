@@ -1,0 +1,5 @@
+split,shards,chromosome_only,plasmid_only,chromosome_and_plasmid,complete_isolates,replicon_coverage_median,replicon_coverage_min,fragments_per_shard_median,Mbp_per_shard_median
+train,397,256,40,101,293,1.0,0.25,191.0,4.02
+validation,118,72,39,7,46,0.5,0.118,142.0,2.9
+test,116,70,42,4,49,0.5,0.059,140.5,2.84
+all,500,334,0,166,500,1.0,1.0,206.0,4.44

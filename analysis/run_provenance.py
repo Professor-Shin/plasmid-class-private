@@ -285,11 +285,18 @@ def summarise_jobs(rows: list[dict], names: dict[str, str]) -> list[dict]:
 # --------------------------------------------------------------- disk
 DISK_TARGETS = (
     ("dataset (csv + fasta)", "dataset pipeline1/data/dataset"),
-    ("per-tool shards", "server/shards"),
+    ("per-assembly shards", "tools-baseline/shards"),
+    ("tool output: platon", "tools-baseline/out/platon"),
+    ("tool output: mob_recon", "tools-baseline/out/mobsuite"),
+    ("tool output: plasme", "tools-baseline/out/plasme"),
+    ("tool output: plasmidhunter", "tools-baseline/out/plasmidhunter"),
+    ("tool databases", "db"),
+    ("PLASMe checkout", "tools/PLASMe"),
+    ("Zou 6-mer cache", "baseline/cache_mixed"),
     ("embedding cache", f"esm2-attention/{CACHE.name}"),
     ("ESM-2 checkpoints", f"esm2-attention/{ESM.name}/checkpoints"),
     ("ESM-2 results", f"esm2-attention/{ESM.name}"),
-    ("tool baselines", "baseline"),
+    ("baseline results", "baseline/results_mixed"),
     ("slurm logs", "server/logs"),
 )
 

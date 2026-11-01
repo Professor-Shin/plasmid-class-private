@@ -1,0 +1,5 @@
+split,fragments,fragments_plasmid,fragment_plasmid_rate,imbalance_1_to_n,replicons,replicons_plasmid,replicon_plasmid_rate,assemblies,assemblies_with_plasmid,species,clusters,total_bp,plasmid_bp,plasmid_bp_rate
+train,79094,2205,0.02788,34.9,644,272,0.42236,397,141,397,622,1688919687,40244993,0.02383
+validation,16891,454,0.02688,36.2,135,55,0.40741,118,46,118,131,362239123,8625355,0.02381
+test,16944,416,0.02455,39.7,129,54,0.4186,116,46,116,129,361913278,8625803,0.02383
+all,112929,3075,0.02723,35.7,908,381,0.4196,500,166,500,882,2413072088,57496151,0.02383

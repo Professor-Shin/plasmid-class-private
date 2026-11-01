@@ -1,0 +1,5 @@
+split,fragments,with_non_acgt,non_acgt_max,non_acgt_mean,length_below_request,length_below_request_plasmid
+train,79094,3,0.00022,0.0,0,0
+validation,16891,1,7e-05,0.0,0,0
+test,16944,7,0.000213,2e-08,0,0
+all,112929,11,0.00022,1e-08,0,0
