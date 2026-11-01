@@ -1,4 +1,8 @@
-"""Score the Platon and MOB-suite predictions with the retrained baselines' metrics.
+"""Score the published tools' predictions with the retrained baselines' metrics.
+
+Four tools, none of them retrained: Platon, MOB-suite (mob_recon), PLASMe and
+PlasmidHunter. All four are database- or model-as-released predictors, so the
+code here is a harness, not a model.
 
 Every metric function here is imported verbatim from `baseline/baselines/metrics.py`,
 the module that produced the PlasFlow / Zou / PlasClass / composition numbers, so
@@ -19,11 +23,23 @@ Three things this reports that a single accuracy number would hide:
    label-dominated and are flagged `score_is_hard_label: true`. Platon's RDS is
    a genuine continuous score, so it gets its own threshold-free entry.
 
-3. **An oracle threshold, labelled as such.** Only the test split is run (both
-   tools are untrained, so a validation run would buy nothing), which means there
-   is no held-out split on which to tune a threshold. The best-F1 threshold on
-   the test split is reported under `test_oracle_tuned` as an upper bound, never
-   as a comparable operating point.
+3. **An oracle threshold, labelled as such.** Only the test split is run (none
+   of the tools is trained here, so a validation run would buy nothing), which
+   means there is no held-out split on which to tune a threshold. The best-F1
+   threshold on the test split is reported under `test_oracle_tuned` as an upper
+   bound, never as a comparable operating point.
+
+Which entries carry a real probability, and which do not:
+
+| entry                      | score                        | threshold-free? |
+|----------------------------|------------------------------|-----------------|
+| platon_<mode>              | filter-mode decision         | no              |
+| platon_rds@<cutoff>        | replicon distribution score  | yes             |
+| mobsuite_molecule_type     | assignment                   | no              |
+| mobsuite_mash_ranked       | label + mash closeness       | no              |
+| plasme_<mode>              | preset-mode decision         | no              |
+| plasme_transformer         | Transformer probability      | yes             |
+| plasmidhunter              | Gaussian naive Bayes posterior | yes           |
 
 Writes results_dir/tool_baselines.{json,csv}, in the same shape as
 composition_baselines.{json,csv} so analysis/dump_tables.py can read both.
@@ -129,12 +145,15 @@ def main():
         "split": split,
         "dataset_dir": str(conf["dataset_dir"]),
         "upstream": conf["upstream"],
-        "note": ("Platon and MOB-suite are database- and rule-based and are run as "
-                 "published, not retrained. Fragments are presented to them grouped "
-                 "by assembly, i.e. as the contigs of one fragmented draft assembly, "
-                 "which is the input both tools were designed for. Fragments are "
-                 "linear sub-sequences of a replicon, so they carry no circularity "
-                 "and usually no oriT or rep hallmark; both tools are therefore "
+        "note": ("Platon, MOB-suite, PLASMe and PlasmidHunter are run exactly as "
+                 "published, not retrained. Fragments are presented to all four "
+                 "grouped by assembly, i.e. as the contigs of one fragmented draft "
+                 "assembly, which is the input Platon and mob_recon were designed "
+                 "for; PLASMe and PlasmidHunter classify each contig independently, "
+                 "so the grouping neither helps nor hurts them and keeps the input "
+                 "identical across tools. Fragments are linear sub-sequences of a "
+                 "replicon, so they carry no circularity and usually no oriT or rep "
+                 "hallmark; the database- and hallmark-driven tools are therefore "
                  "expected to lean chromosomal, and the replicon-level numbers are "
                  "the fairer comparison."),
         "models": {},
@@ -217,6 +236,57 @@ def main():
                                  0.5, hard_label=True, policy=policy))
     else:
         log(f"no {mob_path.name}; run collect_mobsuite.py first")
+
+    # -------------------------------------------------------------- PLASMe --
+    plasme_path = results / f"predictions_plasme_{split}.csv"
+    if plasme_path.exists():
+        pm = pd.read_csv(plasme_path)
+        reported = pm["reported"].to_numpy(dtype=bool)
+        has_tr = pm["has_transformer"].to_numpy(dtype=bool)
+        log(f"\n=== PLASMe: {len(pm):,} fragments, {reported.sum():,} aligned "
+            f"({reported.mean():.2%} coverage), {has_tr.sum():,} with a "
+            f"Transformer probability")
+        for mode in rules.PLASME_MODES:
+            col = f"pred_{mode}"
+            if col not in pm.columns or (pm[col] < 0).all():
+                log(f"  mode {mode}: no predictions in the table, skipped")
+                continue
+            pred = pm[col].to_numpy()
+            for policy in policies:
+                record(score_one(metrics, f"plasme_{mode}", pm,
+                                 np.clip(pred, 0, 1).astype(float), pred >= 0,
+                                 0.5, hard_label=True, policy=policy))
+
+        # The Transformer posterior is a genuine probability, but it exists only
+        # for the contigs PLASMe passed to that stage: a contig decided by BLASTn
+        # alone carries -1. Scoring it as "reported" only where the Transformer
+        # actually ran keeps the threshold-free number honest - the `exclude`
+        # policy is then exactly "PLASMe's Transformer on the contigs it scored",
+        # and the other two policies show what assuming the rest costs.
+        if has_tr.any():
+            proba = pm["transformer_score"].to_numpy(dtype=float)
+            proba = np.where(has_tr, proba, 0.0)
+            for policy in policies:
+                record(score_one(metrics, "plasme_transformer", pm, proba, has_tr,
+                                 0.5, hard_label=False, policy=policy))
+    else:
+        log(f"no {plasme_path.name}; run collect_plasme.py first")
+
+    # ------------------------------------------------------- PlasmidHunter --
+    ph_path = results / f"predictions_plasmidhunter_{split}.csv"
+    if ph_path.exists():
+        ph = pd.read_csv(ph_path)
+        reported = ph["reported"].to_numpy(dtype=bool)
+        log(f"\n=== PlasmidHunter: {len(ph):,} fragments, {reported.sum():,} scored "
+            f"({reported.mean():.2%} coverage)")
+        # The one published tool here whose output is a calibrated posterior, so
+        # it needs no ranking heuristic and no hard-label flag.
+        proba = np.nan_to_num(ph["proba_plasmid"].to_numpy(dtype=float), nan=0.0)
+        for policy in policies:
+            record(score_one(metrics, "plasmidhunter", ph, proba, reported,
+                             0.5, hard_label=False, policy=policy))
+    else:
+        log(f"no {ph_path.name}; run collect_plasmidhunter.py first")
 
     if not rows:
         raise SystemExit("nothing scored - no prediction tables found")

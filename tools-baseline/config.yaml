@@ -1,7 +1,10 @@
-# Platon and MOB-suite as published baselines on the mixed-length test split.
+# Four published tools as baselines on the mixed-length test split:
+# Platon, MOB-suite (mob_recon), PLASMe and PlasmidHunter.
 #
-# Neither tool is retrained: both are database- and rule-based and are run exactly
-# as released. What this config controls is the harness around them.
+# None of them is retrained: all four are run exactly as released, as database-,
+# rule- or pretrained-model-based predictors. What this config controls is the
+# harness around them. The fifth baseline in the comparison, Zou et al., IS a
+# retrained model and lives in baseline/run_zou_mixed.py instead.
 
 upstream:
   platon:
@@ -15,6 +18,18 @@ upstream:
     paper: "Robertson & Nash 2018, Microb Genom, doi:10.1099/mgen.0.000206"
     install: "conda install -c conda-forge -c bioconda mob_suite"
     database: "mob_init (figshare), mirror https://zenodo.org/records/10304948"
+  plasme:
+    url: "https://github.com/HubertTang/PLASMe"
+    paper: "Tang et al. 2023, Nucleic Acids Res, doi:10.1093/nar/gkad578"
+    install: "git clone + conda env (see server/00_setup_envs.sh)"
+    database: "https://zenodo.org/record/8046934/files/DB.zip (12.4 GB, md5 b32263ad4fb20c04044700170b1609ef)"
+    version_read: "PLASMe_v1.1"
+  plasmidhunter:
+    url: "https://github.com/tianrenmaogithub/PlasmidHunter"
+    paper: "Tian et al. 2024, Brief Bioinform, doi:10.1093/bib/bbae322"
+    install: "pip install plasmidhunter (+ conda diamond=2.1.8 prodigal)"
+    database: "https://zenodo.org/records/10431696/files/database.dmnd.gz (DIAMOND)"
+    version_read: "1.4"
 
 dataset_dir: "../dataset pipeline1/data/dataset_mixed"
 # Results land next to the retrained baselines so analysis/dump_tables.py and
@@ -46,7 +61,28 @@ mobsuite:
   # shortest fragment is 1,000 bp, which sits exactly on this boundary.
   min_length: 1000
 
-# Both tools can decline to classify a fragment, so three policies are reported
-# rather than one, the same way baseline/baselines/metrics.plasflow_threshold_rule
-# already handles PlasFlow's "unclassified" band.
+plasme:
+  # PLASMe is run once at its own CLI defaults and every preset mode is recovered
+  # offline from the candidate table it leaves in --temp, exactly as Platon's
+  # three filter modes are recovered from one --characterize run. The thresholds
+  # themselves are transcribed from PLASMe.py into toolbase/rules.PLASME_MODES,
+  # not configured here, so they cannot drift away from the published values.
+  modes: ["high_sensitivity", "balance", "high_precision"]
+  # Kept because the runner must NOT delete it: PLASMe_candidate.csv, the only
+  # file with one row per aligned contig, lives in the temporary directory.
+  keep_temp: true
+
+plasmidhunter:
+  # PlasmidHunter filters contigs below this length itself (functions.filter_fasta,
+  # `len(seq) >= 1000`). The dataset's shortest fragment is 1,001 bp, so nothing
+  # is lost to it - but the collector still reports how many fragments fell below
+  # it rather than assuming that stays true.
+  min_length: 1000
+
+# Every tool can decline to classify a fragment - Platon when it finds no marker
+# protein, mob_recon below its length cutoff, PLASMe when a contig aligns to
+# nothing, PlasmidHunter when a contig's proteins produce no DIAMOND hit - so
+# three policies are reported rather than one, the same way
+# baseline/baselines/metrics.plasflow_threshold_rule already handles PlasFlow's
+# "unclassified" band.
 unclassified_policies: ["chromosome", "plasmid", "exclude"]

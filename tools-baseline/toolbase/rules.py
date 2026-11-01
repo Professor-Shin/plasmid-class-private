@@ -135,3 +135,88 @@ def mobsuite_score(df: pd.DataFrame, labels: np.ndarray) -> np.ndarray:
     # chromosome below 0.5, so thresholding the score at 0.5 reproduces the hard
     # label exactly while the ordering inside each class stays informative.
     return (labels.astype(float) + 0.999 * closeness) / 2.0
+
+
+# ---------------------------------------------------------------------- PLASMe --
+# PLASMe's three preset modes, transcribed from the `-m/--mode` branch at the
+# bottom of PLASMe.py (v1.1) as (identity, coverage, probability):
+#
+#   high-sensitivity  0.7, 0.1, 0.5
+#   balance           0.9, 0.9, 0.5      == the CLI defaults
+#   high-precision    0.9, 0.9, 0.9
+#
+# and the decision itself, from plasme_output():
+#
+#   plasmid if (identity >= i AND coverage >= c)        - the BLASTn branch
+#           or (transformer_score > p)                  - the Transformer branch
+#   chromosome otherwise
+#
+# Note `>` and not `>=` on the probability, and that a contig the Transformer did
+# not score carries -1, which can never pass any threshold in [0, 1]. Because all
+# three presets are thresholds over the same three numbers, one PLASMe run yields
+# all three modes offline - the same saving --characterize buys for Platon, and
+# 13_smoke_tools.sh checks this re-derivation against PLASMe's own _report.csv
+# before any of it is trusted.
+PLASME_MODES: dict[str, tuple[float, float, float]] = {
+    "high_sensitivity": (0.7, 0.1, 0.5),
+    "balance":          (0.9, 0.9, 0.5),
+    "high_precision":   (0.9, 0.9, 0.9),
+}
+
+# transformer_score for a contig classified by BLASTn alone.
+PLASME_NO_TRANSFORMER = -1.0
+
+
+def plasme_labels(df: pd.DataFrame, identity: float, coverage: float,
+                  probability: float) -> np.ndarray:
+    """1 = plasmid, 0 = chromosome, for one (identity, coverage, probability) mode."""
+    missing = [c for c in ("identity", "coverage", "transformer_score")
+               if c not in df.columns]
+    if missing:
+        raise parse.SchemaError(
+            f"PLASMe's decision rule needs column(s) {missing}, which the parsed "
+            f"candidate table does not carry (it has {sorted(df.columns)}). The "
+            "scored file must be <temp>/PLASMe_candidate.csv, not the _report.csv "
+            "PLASMe writes beside its output FASTA.")
+    ident = pd.to_numeric(df["identity"], errors="coerce").to_numpy()
+    cov = pd.to_numeric(df["coverage"], errors="coerce").to_numpy()
+    prob = pd.to_numeric(df["transformer_score"], errors="coerce").to_numpy()
+    blastn = (ident >= identity) & (cov >= coverage)
+    transformer = prob > probability
+    return np.where(blastn | transformer, 1, 0).astype(np.int8)
+
+
+def plasme_modes(df: pd.DataFrame) -> dict[str, np.ndarray]:
+    return {name: plasme_labels(df, *thr) for name, thr in PLASME_MODES.items()}
+
+
+# --------------------------------------------------------------- PlasmidHunter --
+def plasmidhunter_labels(df: pd.DataFrame) -> np.ndarray:
+    """1 = plasmid, 0 = chromosome, straight from PlasmidHunter's own argmax.
+
+    The tool writes both the class and the two class probabilities, and its class
+    is the argmax of them. Recomputing it here rather than trusting the column
+    would hide a disagreement; comparing them instead turns one into a check on
+    the other.
+    """
+    pred = pd.to_numeric(df["pred"], errors="coerce").to_numpy()
+    unknown = sorted(set(pred[~np.isnan(pred)]) - {0.0, 1.0})
+    if unknown:
+        raise ValueError(
+            f"PlasmidHunter reported unexpected class value(s) {unknown}; the "
+            "documented values are 0 (chromosome) and 1 (plasmid). Check the "
+            "installed version before trusting these labels.")
+    labels = np.nan_to_num(pred, nan=0.0).astype(np.int8)
+    if {"proba_plasmid", "proba_chromosome"} <= set(df.columns):
+        p1 = pd.to_numeric(df["proba_plasmid"], errors="coerce").to_numpy()
+        p0 = pd.to_numeric(df["proba_chromosome"], errors="coerce").to_numpy()
+        # np.argmax breaks a tie towards the FIRST class, so the equivalent test
+        # is a strict comparison, not a threshold at 0.5.
+        argmax = (p1 > p0).astype(np.int8)
+        disagree = (~np.isnan(p1)) & (~np.isnan(p0)) & (argmax != labels)
+        if disagree.any():
+            raise ValueError(
+                f"{int(disagree.sum())} PlasmidHunter row(s) have a class that is "
+                "not the argmax of their own probabilities. The output schema has "
+                "changed; re-read PlasmidHunter.predict() before scoring this run.")
+    return labels

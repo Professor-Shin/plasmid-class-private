@@ -158,3 +158,91 @@ def is_circular(series: pd.Series) -> np.ndarray:
     text = series.fillna("").astype(str).str.strip().str.lower()
     return text.isin({"yes", "y", "true", "1", "circular", "circularized",
                       "circularised", "complete"})
+
+
+# PLASMe writes two files per run. `<output>_report.csv` is TAB-separated despite
+# the name and holds only the contigs it CALLED plasmid, which is useless for a
+# denominator. `<temp>/PLASMe_candidate.csv` is the real result: one comma-
+# separated row for every contig that got a BLASTn hit against the reference
+# plasmid database, carrying the identity and coverage of that hit and, where the
+# Transformer stage ran, its probability. Every published decision mode is a
+# threshold pair over those three numbers, so one run is enough for all of them -
+# the same reason Platon is run once with --characterize.
+PLASME_ALIASES: dict[str, set[str]] = {
+    "order":             {"order", "taxonomy", "taxonomicorder"},
+    "contig_id":         {"query", "contig", "contigid", "id", "sequenceid", "seqid"},
+    "identity":          {"identity", "ident", "pident", "blastnidentity"},
+    "coverage":          {"coverage", "cov", "qcov", "blastncoverage"},
+    "transformer_score": {"plasme", "score", "probability", "prob", "predscore"},
+    "overlap":           {"overlap", "ambregion", "ambiguousregion", "ambregions"},
+}
+
+# PlasmidHunter's predictions.tsv is written with `DataFrame.to_csv(sep='\t')`, so
+# the contig id is the unnamed index column and is handled separately below.
+PLASMIDHUNTER_ALIASES: dict[str, set[str]] = {
+    "pred":              {"prediction0chromosome1plasmid", "prediction", "pred",
+                          "predictedclass", "label"},
+    "proba_chromosome":  {"probabilityof0", "probability0", "probchromosome",
+                          "probabilitychromosome"},
+    "proba_plasmid":     {"probabilityof1", "probability1", "probplasmid",
+                          "probabilityplasmid"},
+}
+
+PLASME_REQUIRED = ("contig_id", "identity", "coverage", "transformer_score")
+PLASMIDHUNTER_REQUIRED = ("pred", "proba_plasmid")
+
+
+def read_plasme_candidate(path: Path) -> pd.DataFrame:
+    """One row per contig PLASMe aligned to its reference database.
+
+    A contig that produced no BLASTn hit at all never reaches this file, and a
+    contig whose proteins were not run through the Transformer carries
+    `transformer_score == -1`. Both are distinctions the collector has to keep:
+    the first is "PLASMe declined to classify it", the second is "classified, but
+    by BLASTn alone, so there is no probability to put on a ROC curve".
+    """
+    path = Path(path)
+    if not path.exists() or path.stat().st_size == 0:
+        return pd.DataFrame(columns=list(PLASME_ALIASES))
+    df = pd.read_csv(path, dtype=str)
+    df = _rename(df, PLASME_ALIASES, PLASME_REQUIRED, "PLASMe candidate table", path)
+    for col in ("identity", "coverage", "transformer_score"):
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def read_plasme_report(path: Path) -> pd.DataFrame:
+    """PLASMe's own `<output>_report.csv`: the contigs it called plasmid.
+
+    Only used to cross-check the offline re-derivation of the decision rule
+    (server/13_smoke_tools.sh); the scored predictions come from the candidate
+    table, which keeps the contigs PLASMe rejected as well.
+    """
+    path = Path(path)
+    if not path.exists() or path.stat().st_size == 0:
+        return pd.DataFrame(columns=["contig_id", "length", "reference", "order",
+                                     "evidence", "score", "amb_region"])
+    # Written with a tab separator under a .csv name - read it as what it is.
+    return pd.read_csv(path, sep="\t", dtype=str).rename(columns={"contig": "contig_id"})
+
+
+def read_plasmidhunter_tsv(path: Path) -> pd.DataFrame:
+    """One row per contig PlasmidHunter scored, with canonical column names.
+
+    PlasmidHunter builds its feature vector from DIAMOND hits of the contig's
+    predicted proteins, so a contig whose proteins hit nothing in the database
+    produces no row at all. As with mob_recon's length cutoff, those contigs must
+    be re-joined as unclassified rather than dropped from the denominator.
+    """
+    path = Path(path)
+    if not path.exists() or path.stat().st_size == 0:
+        return pd.DataFrame(columns=["contig_id", *PLASMIDHUNTER_ALIASES])
+    df = pd.read_csv(path, sep="\t", dtype=str, index_col=0)
+    ids = df.index.astype(str)
+    df = _rename(df.reset_index(drop=True), PLASMIDHUNTER_ALIASES,
+                 PLASMIDHUNTER_REQUIRED, "PlasmidHunter predictions.tsv", path)
+    df.insert(0, "contig_id", ids.to_numpy())
+    for col in ("pred", "proba_chromosome", "proba_plasmid"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
