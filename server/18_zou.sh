@@ -30,6 +30,9 @@
 # Resumable in the part that takes the time: the 6-mer counts are cached as
 # baseline/cache_mixed/zou_k6c_<split>.npy and reused, so a resubmit after a
 # failed training re-reads them instead of re-counting 2.4 Gbp.
+#
+# Submitting it by hand needs the account flag, which only submit_all.sh adds:
+#   sbatch --account="$CUAIM_ACCOUNT" server/18_zou.sh
 
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"

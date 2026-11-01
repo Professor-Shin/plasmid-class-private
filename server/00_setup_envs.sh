@@ -36,8 +36,13 @@ source "$HERE/env.sh"
 source "$HERE/lib.sh"
 
 if [[ "$PROJECT" == *"<group>"* ]]; then
-  echo "FATAL: PROJECT in server/env.sh is still a placeholder." >&2
-  echo "       Run 'bash server/probe_server.sh' and fill it in first." >&2
+  echo "FATAL: PROJECT is still the placeholder written in server/env.sh." >&2
+  echo "       Per-machine values do not belong there - they go in" >&2
+  echo "       server/env.local.sh, which is gitignored. A fresh clone never" >&2
+  echo "       has one, which is the usual reason to be reading this." >&2
+  echo "         cp server/env.local.sh.example server/env.local.sh" >&2
+  echo "         \$EDITOR server/env.local.sh     # PROJECT, CUAIM_ACCOUNT" >&2
+  echo "       'bash server/probe_server.sh' prints what this cluster wants." >&2
   exit 2
 fi
 
@@ -357,7 +362,12 @@ else
     # directory literally named DB next to PLASMe.py.
     rm -rf "$PROJECT/tmp/plasme-db-extract"
     mkdir -p "$PROJECT/tmp/plasme-db-extract"
-    unzip -q "$ZIP" -d "$PROJECT/tmp/plasme-db-extract"
+    # Python's zipfile, not `unzip`: unzip is not in a minimal install and is
+    # not guaranteed on a compute node, and finding that out AFTER a 12.4 GB
+    # download is the worst place to find it out. zipfile reads ZIP64, which an
+    # archive this size needs.
+    "$ENV_PLASME/bin/python" -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+        "$ZIP" "$PROJECT/tmp/plasme-db-extract"
     SRC="$(find "$PROJECT/tmp/plasme-db-extract" -maxdepth 2 -type d -name DB | head -1)"
     [[ -n "$SRC" ]] || { echo "FATAL: no DB/ directory inside the archive" >&2; exit 1; }
     mv "$SRC"/* "$PLASME_DB"/
