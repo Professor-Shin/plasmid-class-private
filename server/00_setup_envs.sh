@@ -60,11 +60,23 @@ cuaim_modules gpu
 # Anaconda3 modules and solves the same specs in a fraction of the memory.
 SOLVER=(conda)
 SOLVER_ARGS=()
+# micromamba was installed into $PROJECT/bin by the first setup (SETUP-LOG.md
+# section 2) and is the reason these solves fit in memory at all. Finding it
+# here beats relying on the caller to have exported PATH: forgetting that is
+# silent, and the fallback it drops to is the classic solver.
+if [[ -x "$PROJECT/bin/mamba" ]] && ! command -v mamba >/dev/null; then
+  PATH="$PROJECT/bin:$PATH"
+  echo "  found micromamba in $PROJECT/bin, added to PATH"
+fi
 if command -v mamba >/dev/null; then
   SOLVER=(mamba)
   echo "  using mamba for environment solves"
-elif conda create --solver=libmamba --help >/dev/null 2>&1; then
-  # The flag only parses when conda-libmamba-solver is actually installed.
+elif conda create --help 2>&1 | grep -q -- '--solver'; then
+  # Read the flag out of the help text. Probing with `conda create
+  # --solver=libmamba --help` does NOT work: argparse acts on --help the moment
+  # it parses it and reports unrecognised arguments only at the end, so the
+  # probe exits 0 on a conda 4.x that has no such flag and the real call then
+  # dies with "unrecognized arguments: --solver=libmamba".
   SOLVER_ARGS=(--solver=libmamba)
   echo "  using conda's libmamba solver for environment solves"
 else
@@ -198,12 +210,14 @@ banner "4/10  conda environment: plasme (Python 3.9 + BLAST + DIAMOND + prodigal
 # bio_script, trans_model and trans_data as sibling modules, so the repository
 # itself has to be on disk and invoked by path.
 if [[ -d "$PLASME_DIR/.git" ]]; then
-  echo "  SKIP  $PLASME_DIR already cloned ($(git -C "$PLASME_DIR" rev-parse --short HEAD))"
+  echo "  SKIP  $PLASME_DIR already cloned ($(cd "$PLASME_DIR" && git rev-parse --short HEAD))"
 else
   mkdir -p "$(dirname "$PLASME_DIR")"
   git clone --depth 1 --branch "$PLASME_REPO_REF" "$PLASME_REPO_URL" "$PLASME_DIR"
 fi
-echo "  PLASMe commit: $(git -C "$PLASME_DIR" rev-parse HEAD) ($(git -C "$PLASME_DIR" log -1 --format=%cI))"
+# `cd` in a subshell rather than `git -C`, and %ci rather than %cI: this
+# cluster has RHEL 7's git 1.8.3.1, which predates both (1.8.5 and 2.2).
+echo "  PLASMe commit: $(cd "$PLASME_DIR" && git rev-parse HEAD) ($(cd "$PLASME_DIR" && git log -1 --format=%ci))"
 
 # Upstream's plasme.yaml pins pytorch=1.11.0 WITH cudatoolkit=10.2.89, a ~2 GB
 # GPU runtime this cluster has no use for (PLASMe runs on the CPU partition
@@ -408,7 +422,7 @@ fi
 {
   echo "database url: $PLASME_DB_URL"
   echo "md5:          $PLASME_DB_MD5"
-  echo "PLASMe commit: $(git -C "$PLASME_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "PLASMe commit: $( (cd "$PLASME_DIR" && git rev-parse HEAD) 2>/dev/null || echo unknown)"
   echo "built:        $(date -Is)"
 } > "$PLASME_DB/PROVENANCE.txt"
 
@@ -458,7 +472,7 @@ HELPLOG="$SERVER_LOGS/tool_help_$(date +%Y%m%d).txt"
   done
   echo
   echo "### PLASMe (git checkout, invoked by path)"
-  echo "commit $(git -C "$PLASME_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "commit $( (cd "$PLASME_DIR" && git rev-parse HEAD) 2>/dev/null || echo unknown)"
   "$ENV_PLASME/bin/python" "$PLASME_DIR/PLASMe.py" --version 2>&1 | head -3 || true
   "$ENV_PLASME/bin/python" "$PLASME_DIR/PLASMe.py" --help 2>&1 || true
 } > "$HELPLOG"
