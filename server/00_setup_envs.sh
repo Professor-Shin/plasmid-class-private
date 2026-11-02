@@ -404,7 +404,42 @@ else
   if [[ ! -f "$PLASME_DB/plsdb_Mar30.dmnd" ]]; then
     if [[ ! -s "$ZIP" ]] || [[ "$(md5sum "$ZIP" | cut -d' ' -f1)" != "$PLASME_DB_MD5" ]]; then
       echo "  downloading $PLASME_DB_URL (12.4 GB; resumable, safe to re-run)"
-      curl -fL --retry 5 --retry-delay 10 -C - -o "$ZIP" "$PLASME_DB_URL"
+      # Zenodo drops a connection of this length routinely - the first attempt
+      # here died at 3 GB with "transfer closed with N bytes remaining". curl's
+      # own --retry does not cover that: it retries what it considers transient,
+      # which is timeouts and 4xx/5xx, not a stream that closes mid-body. The
+      # flag that would, --retry-all-errors, needs curl 7.71 and this node has
+      # RHEL 7's 7.29 - so the loop is here instead. -C - resumes from whatever
+      # arrived, so attempt N+1 continues rather than starting over.
+      #
+      # --speed-limit/--speed-time cut a connection that has stalled below
+      # 10 KB/s for two minutes, which is otherwise indistinguishable from a
+      # slow link and sits there until the allocation ends.
+      ATTEMPTS="${PLASME_DB_ATTEMPTS:-30}"
+      DL_OK=""
+      for (( try = 1; try <= ATTEMPTS; try++ )); do
+        HAVE="$( [[ -f "$ZIP" ]] && du -h "$ZIP" | cut -f1 || echo 0 )"
+        echo "  attempt $try/$ATTEMPTS (have $HAVE so far)"
+        # rc captured explicitly: an `if` whose condition fails and which has
+        # no else branch returns 0 itself, so $? after it is not curl's code.
+        DL_RC=0
+        curl -fL --retry 5 --retry-delay 10 \
+             --speed-limit 10240 --speed-time 120 \
+             -C - -o "$ZIP" "$PLASME_DB_URL" || DL_RC=$?
+        if (( DL_RC == 0 )); then
+          DL_OK=1
+          break
+        fi
+        echo "  curl exited $DL_RC with $(du -h "$ZIP" 2>/dev/null | cut -f1) on disk; retrying in 30s"
+        sleep 30
+      done
+      if [[ -z "$DL_OK" ]]; then
+        echo "FATAL: the PLASMe database download failed $ATTEMPTS times." >&2
+        echo "       $(du -h "$ZIP" 2>/dev/null | cut -f1) is on disk at $ZIP and a" >&2
+        echo "       rerun resumes from there, so this is worth simply running" >&2
+        echo "       again. Raise PLASME_DB_ATTEMPTS to retry harder." >&2
+        exit 1
+      fi
       echo "  verifying md5 (expected $PLASME_DB_MD5)"
       GOT="$(md5sum "$ZIP" | cut -d' ' -f1)"
       if [[ "$GOT" != "$PLASME_DB_MD5" ]]; then

@@ -106,7 +106,7 @@ HERE_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # a truncated download is caught before 116 shards are run against half a index.
 : "${PLASME_REPO_URL:=https://github.com/HubertTang/PLASMe.git}"
 : "${PLASME_REPO_REF:=main}"
-: "${PLASME_DB_URL:=https://zenodo.org/record/8046934/files/DB.zip?download=1}"
+: "${PLASME_DB_URL:=https://zenodo.org/records/8046934/files/DB.zip?download=1}"
 : "${PLASME_DB_MD5:=b32263ad4fb20c04044700170b1609ef}"
 : "${PH_DB_URL:=https://zenodo.org/records/10431696/files/database.dmnd.gz?download=1}"
 
