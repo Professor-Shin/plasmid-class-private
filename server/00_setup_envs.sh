@@ -258,15 +258,46 @@ mark_ok "$ENV_PLASME"
 
 banner "5/10  conda environment: plasmidhunter (Python 3.10 + DIAMOND + prodigal)"
 # setup.py says python_requires == 3.10.*, numpy == 1.25.0, scikit-learn == 1.3.2
-# - exact pins, not ranges, so this env can hold nothing else of ours. diamond is
-# pinned to 2.1.8 because the README names that version and a DIAMOND database
-# built by one major version is not readable by an older one.
-create_env "$ENV_PH" "plasmidhunter" python=3.10 "diamond=2.1.8" prodigal
+# - exact pins, not ranges, so this env can hold nothing else of ours. The
+# sklearn pin is the load-bearing one: PlasmidHunter ships a pickled GaussianNB,
+# and a pickle does not travel across sklearn versions. diamond is pinned to
+# 2.1.8 because the README names that version and a DIAMOND database built by
+# one major version is not readable by an older one.
+#
+# Every dependency comes from conda-forge, and pip is given --no-deps. This is
+# the glibc 2.17 trap again, the one that caps torch at 2.5.1 above:
+# PlasmidHunter leaves pandas unpinned, pip resolves that to the newest, and
+# pandas 2.3.3's x86_64 wheel is tagged manylinux_2_24/manylinux_2_28. Nothing
+# matches glibc 2.17, so pip falls back to the sdist and hands it to this node's
+# gcc 4.8.5, where it dies on "Compiler cython cannot compile programs".
+# conda-forge builds against an old enough glibc that the question never arises.
+create_env "$ENV_PH" "plasmidhunter" python=3.10 "diamond=2.1.8" prodigal \
+    "numpy=1.25.0" "scikit-learn=1.3.2" pandas biopython requests
 if ! "$ENV_PH/bin/python" -c "import PlasmidHunter" 2>/dev/null; then
-  "$ENV_PH/bin/python" -m pip install --no-cache-dir plasmidhunter
+  # --no-deps because conda installed them already, and re-resolving is exactly
+  # how the source build gets back in. --only-binary because plasmidhunter
+  # publishes a py3-none-any wheel: a source build here would mean something
+  # unexpected happened, not something worth retrying.
+  "$ENV_PH/bin/python" -m pip install --no-cache-dir --no-deps --only-binary=:all: \
+      "plasmidhunter==1.4"
 else
   echo "  SKIP  plasmidhunter already installed"
 fi
+# pip was told not to check the dependencies, so check them here: a missing one
+# would otherwise surface as an ImportError 116 shards into the run.
+"$ENV_PH/bin/python" - <<'PY'
+import importlib.metadata as md, sys
+missing = []
+for spec in md.requires("plasmidhunter") or []:
+    name = spec.split(";")[0].split("==")[0].split(">")[0].split("<")[0].strip()
+    try:
+        print(f"    {name:16s} {md.version(name)}")
+    except md.PackageNotFoundError:
+        missing.append(name)
+if missing:
+    sys.exit("FATAL: pip --no-deps skipped these and conda did not supply them: "
+             + ", ".join(missing))
+PY
 "$ENV_PH/bin/plasmidhunter" -h >/dev/null 2>&1 \
   || { echo "FATAL: plasmidhunter did not install correctly in $ENV_PH" >&2; exit 1; }
 echo "  plasmidhunter version: $("$ENV_PH/bin/python" -c 'import importlib.metadata as m; print(m.version("plasmidhunter"))' 2>&1 | head -1)"
