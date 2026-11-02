@@ -271,8 +271,15 @@ banner "5/10  conda environment: plasmidhunter (Python 3.10 + DIAMOND + prodigal
 # matches glibc 2.17, so pip falls back to the sdist and hands it to this node's
 # gcc 4.8.5, where it dies on "Compiler cython cannot compile programs".
 # conda-forge builds against an old enough glibc that the question never arises.
+#
+# setuptools is in that list although nothing declares it: PlasmidHunter.py
+# line 3 is `import pkg_resources`, which ships with setuptools and is how it
+# locates its own model files. It is absent from Requires-Dist, and a conda env
+# does not get setuptools for free, so without it the tool installs cleanly and
+# then cannot start. Held below 81, the release that begins removing
+# pkg_resources.
 create_env "$ENV_PH" "plasmidhunter" python=3.10 "diamond=2.1.8" prodigal \
-    "numpy=1.25.0" "scikit-learn=1.3.2" pandas biopython requests
+    "numpy=1.25.0" "scikit-learn=1.3.2" pandas biopython requests "setuptools<81"
 if ! "$ENV_PH/bin/python" -c "import PlasmidHunter" 2>/dev/null; then
   # --no-deps because conda installed them already, and re-resolving is exactly
   # how the source build gets back in. --only-binary because plasmidhunter
@@ -298,8 +305,16 @@ if missing:
     sys.exit("FATAL: pip --no-deps skipped these and conda did not supply them: "
              + ", ".join(missing))
 PY
-"$ENV_PH/bin/plasmidhunter" -h >/dev/null 2>&1 \
-  || { echo "FATAL: plasmidhunter did not install correctly in $ENV_PH" >&2; exit 1; }
+# -h is a real test of this package and not just of the console script: its
+# argparse setup and `import pkg_resources` both run at module import, before
+# main() is ever called. Keep the output - a check that throws away the error
+# it was written to catch only proves that something is wrong.
+if ! PH_HELP="$("$ENV_PH/bin/plasmidhunter" -h 2>&1)"; then
+  echo "FATAL: plasmidhunter is installed in $ENV_PH but will not run." >&2
+  echo "       'plasmidhunter -h' exited non-zero and said:" >&2
+  printf '%s\n' "$PH_HELP" | sed 's/^/         | /' >&2
+  exit 1
+fi
 echo "  plasmidhunter version: $("$ENV_PH/bin/python" -c 'import importlib.metadata as m; print(m.version("plasmidhunter"))' 2>&1 | head -1)"
 mark_ok "$ENV_PH"
 
