@@ -124,6 +124,13 @@ def score_one(metrics, name, table, proba, reported, threshold, *,
         tuned = metrics.best_f1_threshold(y_p, p_p)
         entry["oracle_threshold"] = float(tuned)
         entry["test_oracle_tuned"] = metrics.binary_metrics(y_p, p_p, tuned)
+        # And the same ceiling measured in MCC, because that is the statistic
+        # the comparison is made in. The best-F1 threshold is not the best-MCC
+        # threshold at this prevalence, so reporting the MCC found at the F1
+        # optimum understates how much of the score the published cutoff wastes.
+        tuned_mcc = metrics.best_mcc_threshold(y_p, p_p)
+        entry["oracle_threshold_mcc"] = float(tuned_mcc)
+        entry["test_oracle_tuned_mcc"] = metrics.binary_metrics(y_p, p_p, tuned_mcc)
     return entry
 
 
@@ -178,7 +185,11 @@ def main():
             "specificity": round(m["specificity"], 4),
             "auprc": round(m["auprc"], 4),
             "auroc": round(m["auroc"], 4),
-            "mcc_oracle": round(entry.get("test_oracle_tuned", {}).get("mcc", float("nan")), 4),
+            # The best MCC this score can reach at ANY threshold. Tuned on the
+            # test split - there is no other split for a tool that is not
+            # trained here - so it is a ceiling, never an operating point.
+            "mcc_oracle": round(entry.get("test_oracle_tuned_mcc", {}).get("mcc", float("nan")), 4),
+            "oracle_threshold": round(entry.get("oracle_threshold_mcc", float("nan")), 4),
             "replicon_mcc": round(r.get("mcc", float("nan")), 4),
         })
         log(f"{entry['model']:24s} {entry['policy']:10s} "

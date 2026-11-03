@@ -77,6 +77,24 @@ def maybe(path: Path):
     return path
 
 
+def _precision_at_balance(recall: float, specificity: float) -> float | None:
+    """What this row's precision would be on a 1:1 test set.
+
+    Sensitivity and specificity do not depend on prevalence; precision does.
+    The four tools publish their numbers on balanced benchmarks (PLASMe 6,674
+    plasmid vs 6,674 chromosome fragments, PlasmidHunter 3,000 vs 3,000), while
+    this test split is the 1:40 that genomes actually are. Without this column
+    a reader compares 0.07 here against 0.72 in the paper and concludes the tool
+    is broken, when the two numbers are the same classifier measured under
+    different base rates.
+    """
+    try:
+        denom = recall + (1.0 - specificity)
+        return round(recall / denom, 4) if denom > 0 else None
+    except TypeError:
+        return None
+
+
 def _zou_n_scored(model: str, regime: str) -> int | None:
     """How many test fragments the Zou row was scored on, from its own JSON.
 
@@ -116,8 +134,17 @@ def headline_table() -> pd.DataFrame:
                 "baseline": label, "trained here": "no",
                 "coverage": r["coverage"], "n_scored": int(r["n_scored"]),
                 "mcc": r["mcc"], "f1": r["f1"], "precision": r["precision"],
-                "recall": r["recall"], "auprc": r["auprc"],
+                "recall": r["recall"], "specificity": r.get("specificity"),
+                "precision@1:1": _precision_at_balance(r["recall"],
+                                                       r.get("specificity")),
+                "auprc": r["auprc"],
                 "replicon_mcc": r["replicon_mcc"],
+                # A hard label has no threshold to move, so there is no ceiling
+                # to quote - printing mcc back again would read as if tuning
+                # had been tried and had changed nothing.
+                "mcc tuned": (None if r["hard_label_score"]
+                              else r.get("mcc_oracle")),
+                "tuned on": ("-" if r["hard_label_score"] else "test (ceiling)"),
                 "real probability": "no" if r["hard_label_score"] else "yes",
                 "note": note})
     zou = BASE / "zou_mixed.csv"
@@ -143,8 +170,13 @@ def headline_table() -> pd.DataFrame:
                 "baseline": "Zou et al.", "trained here": "yes",
                 "coverage": 1.0, "n_scored": _zou_n_scored(r["model"], r["regime"]),
                 "mcc": r["mcc"], "f1": r["f1"], "precision": r["precision"],
-                "recall": r["recall"], "auprc": r["auprc"],
+                "recall": r["recall"], "specificity": r.get("specificity"),
+                "precision@1:1": _precision_at_balance(r["recall"],
+                                                       r.get("specificity")),
+                "auprc": r["auprc"],
                 "replicon_mcc": r["replicon_mcc"],
+                "mcc tuned": r.get("mcc_tuned"),
+                "tuned on": "validation",
                 "real probability": "yes",
                 "note": f"retrained, regime {r['regime']}, raw 6-mer counts"})
     out = pd.DataFrame(rows)
@@ -178,6 +210,20 @@ if __name__ == "__main__":
               "assembled contigs. Four of the five are run as published; Zou et al. "
               "is retrained on this dataset, which is an advantage the other four "
               "do not have.")
+        print("\n`precision@1:1` is this row's precision recomputed for a test set "
+              "with equal numbers of plasmid and chromosome fragments, which is "
+              "what these tools were benchmarked on (PLASMe 6,674 vs 6,674; "
+              "PlasmidHunter 3,000 vs 3,000) and is the only way to compare "
+              "against the numbers in their papers. Sensitivity and specificity "
+              "carry over unchanged between base rates; precision does not. "
+              "`mcc tuned` is the best MCC the row's score reaches at any "
+              "threshold, and `tuned on` says what that is worth: for the four "
+              "tools the threshold is fitted on the test split itself, because "
+              "none of them is trained here and no other split was run, so it is "
+              "a ceiling and not an operating point. Zou's is fitted on "
+              "validation and is therefore a choice that could have been made in "
+              "advance. A dash means the row is a hard label with no threshold "
+              "to move.")
 
     section("Dataset: per-split summary")
     if p := maybe(REPORTS / "dataset_summary_mixed.csv"):
@@ -343,7 +389,8 @@ if __name__ == "__main__":
         df = pd.read_csv(p)
         print(md(df, ["model", "policy", "coverage", "n_scored", "mcc", "f1",
                       "precision", "recall", "specificity", "auprc",
-                      "replicon_mcc", "hard_label_score"]))
+                      "replicon_mcc", "mcc_oracle", "oracle_threshold",
+                      "hard_label_score"]))
         print("\n`policy` is how fragments the tool declined to classify are "
               "counted. `hard_label_score` marks rows whose AUROC/AUPRC come from "
               "a decision rather than a probability, so they are label-dominated. "
@@ -373,7 +420,8 @@ if __name__ == "__main__":
     if p := maybe(BASE / "zou_mixed.csv"):
         print(md(pd.read_csv(p), ["model", "regime", "n_features", "n_train", "mcc",
                                   "f1", "precision", "recall", "specificity", "auprc",
-                                  "auroc", "mcc_tuned", "mcc_three_vote",
+                                  "auroc", "mcc_tuned", "tuned_threshold",
+                                  "mcc_three_vote",
                                   "replicon_mcc", "train_seconds"]))
         print("\n`zou` feeds raw canonical 6-mer counts to the published "
               "architecture, which is what the paper does - but on variable-length "

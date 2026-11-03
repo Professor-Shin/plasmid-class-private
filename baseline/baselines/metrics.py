@@ -44,6 +44,31 @@ def best_f1_threshold(y_true: np.ndarray, proba: np.ndarray) -> float:
     return float(grid[int(np.argmax(scores))])
 
 
+def best_mcc_threshold(y_true: np.ndarray, proba: np.ndarray) -> float:
+    """The threshold that maximises MCC, which is not the one that maximises F1.
+
+    F1 ignores true negatives, so at a 1:40 prevalence its optimum sits far out
+    towards recall and the MCC measured there can be worse than the MCC at 0.5 -
+    which makes "MCC at the best-F1 threshold" useless for the one question it
+    gets asked: how much of a score's separation does the published cutoff leave
+    unused. That ceiling has to be measured with the same statistic the
+    comparison is made in.
+    """
+    grid = np.unique(np.quantile(proba, np.linspace(0.0, 1.0, 501)))
+    best, best_t = -2.0, 0.5
+    for t in grid:
+        pred = proba >= t
+        tp = float((pred & (y_true == 1)).sum())
+        fp = float((pred & (y_true == 0)).sum())
+        fn = float((~pred & (y_true == 1)).sum())
+        tn = float((~pred & (y_true == 0)).sum())
+        denom = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+        mcc = ((tp * tn - fp * fn) / denom) if denom else 0.0
+        if mcc > best:
+            best, best_t = mcc, float(t)
+    return best_t
+
+
 def plasflow_threshold_rule(y_true: np.ndarray, proba: np.ndarray, threshold: float) -> dict:
     """PlasFlow.py leaves a sequence unclassified when no class passes the threshold."""
     confident = np.maximum(proba, 1 - proba) >= threshold

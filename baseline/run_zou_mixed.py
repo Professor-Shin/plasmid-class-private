@@ -305,6 +305,12 @@ def main():
             votes = (np.mean([(p >= 0.5).astype(float) for p in probs["test"]], axis=0)
                      >= 0.5).astype(float)
             tuned = metrics.best_f1_threshold(labels["validation"], mean_prob["validation"])
+            # Chosen on VALIDATION, so unlike the four published tools this one
+            # is an operating point that could have been picked in advance, not
+            # a ceiling. By MCC rather than F1 because MCC is what the table
+            # compares, and at 1:40 the two optima are not the same threshold.
+            tuned_mcc = metrics.best_mcc_threshold(labels["validation"],
+                                                   mean_prob["validation"])
             entry = {
                 "variant": variant, "regime": regime,
                 "n_train_fragments": int(len(subset)),
@@ -317,6 +323,10 @@ def main():
                 "test": metrics.binary_metrics(labels["test"], mean_prob["test"]),
                 "test_three_vote": metrics.binary_metrics(labels["test"], votes),
                 "test_tuned": metrics.binary_metrics(labels["test"], mean_prob["test"], tuned),
+                "test_tuned_mcc": metrics.binary_metrics(labels["test"],
+                                                         mean_prob["test"], tuned_mcc),
+                "tuned_threshold_f1": float(tuned),
+                "tuned_threshold_mcc": float(tuned_mcc),
                 "test_replicon": metrics.replicon_metrics(tables["test"], mean_prob["test"]),
                 "test_by_length": metrics.length_bucket_metrics(
                     tables["test"]["length_bucket"], labels["test"], mean_prob["test"],
@@ -334,7 +344,8 @@ def main():
                          "recall": round(t["recall"], 4),
                          "specificity": round(t["specificity"], 4),
                          "auprc": round(t["auprc"], 4), "auroc": round(t["auroc"], 4),
-                         "mcc_tuned": round(tt["mcc"], 4),
+                         "mcc_tuned": round(entry["test_tuned_mcc"]["mcc"], 4),
+                         "tuned_threshold": round(float(tuned_mcc), 4),
                          "f1_tuned": round(tt["f1"], 4),
                          "mcc_three_vote": round(entry["test_three_vote"]["mcc"], 4),
                          "replicon_mcc": round(entry["test_replicon"]["mcc"], 4),
