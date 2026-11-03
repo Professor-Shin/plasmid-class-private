@@ -60,6 +60,33 @@ hallmark ซึ่ง Platon mode `accuracy` พึ่งพา และ mob_re
 **นี่เป็นผลที่ถูกต้องและน่าสนใจ ไม่ใช่บั๊ก**: เครื่องมือที่สมมติว่า input คือ assembled contig
 ทำงานแย่ลงกับ fragment และนั่นคือเหตุผลที่ต้องรายงาน**ระดับ replicon**ควบคู่กับระดับ fragment
 
+### shard ที่เล็กกว่า 50 kb: `--characterize` ไม่ได้ใช้ ORF predictor ตัวเดียวกับ Platon ปกติ
+
+Platon เลือกตัวทำนาย ORF จากขนาด input (`functions.py`, `predict_orfs`):
+
+```python
+if metagenome or (characterize and genome_size < 50000):
+    prodigal -p meta
+```
+
+แปลว่า **ต่ำกว่า 50 kb การรัน `--characterize` ใช้ prodigal โหมด `meta` ส่วนการรันปกติใช้โหมดเทรน**
+ซึ่งให้ ORF คนละชุดกัน และ **ต่ำกว่า 20 kb การรันปกติทำงานไม่ได้เลย** เพราะ prodigal ปฏิเสธที่จะ
+เทรนบนลำดับสั้นขนาดนั้น (`Error: ORF prediction failed!`)
+
+ใน test split มี **16 shard ที่เล็กกว่า 50 kb และ 9 shard ที่เล็กกว่า 20 kb** รวม **38 fragment
+จาก 16,944 (0.22%) และทั้งหมดเป็นพลาสมิด** สำหรับ fragment กลุ่มนี้ label ของ mode `accuracy`
+และ `sensitivity` ที่เราคำนวณย้อนหลังมาจาก ORF ของโหมด `meta` ไม่ใช่สิ่งที่ Platon ปกติจะให้
+
+สองข้อที่ตามมา และควรเขียนทั้งคู่ลงรายงาน:
+
+1. ตัวเลขของ Platon ในตารางเป็นผลของ `--characterize` ล้วน จึง**สอดคล้องกันเองทั้ง 116 shard**
+   แต่ไม่เท่ากับการรัน `platon --mode accuracy` แยกทีละ shard เป๊ะ ๆ สำหรับ 16 shard นั้น
+2. ในทางกลับกัน Platon ปกติ **รัน 9 shard นั้นไม่ได้เลย** วิธี `--characterize` ของเราจึงให้คำตอบ
+   ครอบคลุมกว่า ไม่ใช่ด้อยกว่า
+
+`server/13_smoke_tools.sh` จึงพิสูจน์กฎย้อนหลังบน shard ที่ **≥ 50 kb** เท่านั้น (ปรับด้วย
+`PLATON_SAME_MODE_BP`) เพราะต่ำกว่านั้นสองโหมดไม่ได้เทียบของอย่างเดียวกัน
+
 ## ไฟล์
 
 | ไฟล์ | หน้าที่ |

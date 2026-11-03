@@ -112,16 +112,35 @@ run_tool plasmidhunter --infile "$SMOKE/smoke.fasta" --cpu "$CPUS_PER_TOOL" \
 echo "  predictions header: $(head -1 "$SMOKE/plasmidhunter/predictions.tsv")"
 
 banner "6/6  does the offline accuracy rule match a real --mode accuracy run?"
-# Two real shards, the smallest ones that actually contain a plasmid fragment, so
-# the comparison exercises both branches of the rule rather than only the
-# chromosome branch.
-SHARDS="$(awk -F',' 'NR>1 && $3>0 {print $4","$1}' "$SHARD_DIR/manifest.csv" \
-          | sort -t',' -k1,1n | head -2 | cut -d',' -f2)"
+# Two real shards that contain a plasmid fragment, so the comparison exercises
+# both branches of the rule - but the SMALLEST such shards cannot be used, and
+# that is not an arbitrary preference.
+#
+# Platon chooses its ORF predictor by size (functions.py, predict_orfs):
+#
+#     if metagenome or (characterize and genome_size < 50000): prodigal -p meta
+#
+# So under 50 kb a --characterize run and a --mode accuracy run do not even
+# predict the same ORFs, which makes the comparison meaningless, and under
+# 20 kb the accuracy run cannot run at all - prodigal refuses to train on that
+# little sequence and Platon exits "Error: ORF prediction failed!". The test
+# split has 16 shards under 50 kb and 9 under 20 kb, and the three smallest
+# holding a plasmid are 1.7 kb, 2.6 kb and 3.4 kb, so "smallest with a plasmid"
+# picked a shard that could not work.
+PLATON_SAME_MODE_BP="${PLATON_SAME_MODE_BP:-50000}"
+SHARDS="$(awk -F',' -v min="$PLATON_SAME_MODE_BP" '
+  NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+  $col["n_plasmid"] > 0 && $col["bp"] >= min { print $col["bp"] "," $col["shard"] }
+' "$SHARD_DIR/manifest.csv" | sort -t',' -k1,1n | head -2 | cut -d',' -f2)"
 if [[ -z "$SHARDS" ]]; then
-  echo "WARNING: no shard in the manifest contains a plasmid fragment; falling back"
-  echo "         to the two smallest shards"
-  SHARDS="$(awk -F',' 'NR>1 {print $4","$1}' "$SHARD_DIR/manifest.csv" \
-            | sort -t',' -k1,1n | head -2 | cut -d',' -f2)"
+  echo "WARNING: no shard holds a plasmid fragment and at least $PLATON_SAME_MODE_BP bp."
+  echo "         Falling back to the two largest shards; if they are under"
+  echo "         $PLATON_SAME_MODE_BP bp the two Platon runs will use different ORF"
+  echo "         predictors and this check cannot mean anything."
+  SHARDS="$(awk -F',' '
+    NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+    { print $col["bp"] "," $col["shard"] }
+  ' "$SHARD_DIR/manifest.csv" | sort -t',' -k1,1nr | head -2 | cut -d',' -f2)"
 fi
 echo "  verifying on shards: $(echo $SHARDS | tr '\n' ' ')"
 
