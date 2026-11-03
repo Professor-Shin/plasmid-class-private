@@ -75,7 +75,23 @@ run_tool() {
     # any working directory - but invoking a copy of it would not.
     [[ -f "$PLASME_DIR/PLASMe.py" ]] || {
       echo "FATAL: no PLASMe.py at $PLASME_DIR - run 00_setup_envs.sh" >&2; return 1; }
-    python "$PLASME_DIR/PLASMe.py" "$@"
+    # The env's own lib goes first, and this one is not optional. PLASMe.py
+    # imports trans_model -> torch (a pip manylinux wheel, deliberately linked
+    # against the SYSTEM libstdc++) at line 4, and pandas (a conda-forge build
+    # needing CXXABI_1.3.9) at line 8. Once torch has pulled
+    # /lib64/libstdc++.so.6 into the process, the loader has a library with that
+    # SONAME already mapped and reuses it for pandas rather than following
+    # pandas' RPATH into the env - and RHEL 7's copy stops at CXXABI_1.3.7, so
+    # pandas fails to import and PLASMe dies before it opens the FASTA. Each
+    # import works perfectly well on its own, which is what made this look like
+    # a node or an environment problem for far longer than it should have.
+    #
+    # Putting $ENV_PLASME/lib first means the first libstdc++ loaded is the
+    # env's 1.3.17, which satisfies torch and pandas both. Scoped to this one
+    # command on purpose: exporting it from cuaim_activate would also hand conda
+    # libcurl/libssl to srun and the other system binaries the job runs.
+    LD_LIBRARY_PATH="$ENV_PLASME/lib:${LD_LIBRARY_PATH:-}" \
+      python "$PLASME_DIR/PLASMe.py" "$@"
   else
     command -v "$tool" >/dev/null || { echo "FATAL: $tool not on PATH" >&2; return 1; }
     "$tool" "$@"
