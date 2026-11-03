@@ -96,6 +96,30 @@ RC=0
     --temp "$STAGE/temp" ) || RC=$?
 
 CAND="$STAGE/temp/PLASMe_candidate.csv"
+
+# A shard where BLASTn aligns nothing is a correct answer, not a failed run,
+# and PLASMe cannot express it: with no alignments it writes an empty align.fna
+# and then asks split_fasta to divide its length by the thread count, which
+# gives range(0, 0, 0) and a ValueError. Upstream bug (bio_script.py:68),
+# deterministic, so a resubmit reproduces it exactly.
+#
+# The answer it was trying to give - "none of these contigs resembles a known
+# plasmid" - is a shard where every fragment is unclassified, which is already
+# one of the three policies the scorer reports. So the shard is recorded with
+# an empty candidate table rather than thrown away; dropping it would quietly
+# bias the denominator towards shards that happen to look like PLSDB.
+#
+# Recognised narrowly: PLASMe must have got far enough to produce both
+# intermediates, and both must be empty. Anything else is still a failure.
+if [[ $RC -ne 0 && -f "$STAGE/temp/blastn.csv" && ! -s "$STAGE/temp/blastn.csv" \
+      && -f "$STAGE/temp/align.fna" && ! -s "$STAGE/temp/align.fna" ]]; then
+  echo "  NOTE: BLASTn aligned 0 of $N_CONTIGS contigs to PLSDB. That crashes"
+  echo "        PLASMe in split_fasta (upstream bug), but the result is well"
+  echo "        defined: nothing reported, every fragment unclassified."
+  printf 'order,query,identity,coverage,PLASMe,overlap\n' > "$CAND"
+  RC=0
+fi
+
 if [[ $RC -ne 0 ]]; then
   echo "FATAL: PLASMe exited $RC on shard $SHARD" >&2
   ls -la "$STAGE" "$STAGE/temp" >&2 || true
