@@ -77,6 +77,23 @@ def maybe(path: Path):
     return path
 
 
+def _zou_n_scored(model: str, regime: str) -> int | None:
+    """How many test fragments the Zou row was scored on, from its own JSON.
+
+    The CSV carries n_train but not the test count, and leaving the column
+    empty invited the reading that Zou was scored on something other than the
+    16,944 fragments every other row uses.
+    """
+    path = BASE / "zou_mixed.json"
+    if not path.exists():
+        return None
+    try:
+        blob = json.loads(path.read_text())
+        return int(blob["models"][f"{model}|{regime}"]["test"]["n"])
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def headline_table() -> pd.DataFrame:
     """One row per baseline at its published default, for the summary table.
 
@@ -106,15 +123,25 @@ def headline_table() -> pd.DataFrame:
     zou = BASE / "zou_mixed.csv"
     if zou.exists():
         df = pd.read_csv(zou)
-        # The full regime is the comparable one: the other four tools see the
-        # test split at its natural 40:1 imbalance and so should this.
-        pick = df[(df["model"] == "zou") & (df["regime"] == "full")]
+        # `balanced` because that is the regime the paper trains under, and this
+        # table is each baseline at the operating point its authors ship.
+        #
+        # The earlier choice here was `full`, on the reasoning that the other
+        # four tools meet the test split at its natural 40:1 and so should this
+        # one. That reasoning does not hold: `regime` is the class balance at
+        # TRAINING time, and every regime is scored on the same 16,944 test
+        # fragments either way (zou_mixed.json: test.n = 16944 for all four).
+        # What `full` changes is that an unweighted model under 40:1 stops
+        # predicting the positive class at all - MCC 0.0000 at recall 0.0000 -
+        # so the headline was showing a collapsed model rather than the
+        # architecture. Both regimes stay in the detailed Zou table below.
+        pick = df[(df["model"] == "zou") & (df["regime"] == "balanced")]
         pick = pick if not pick.empty else df.head(1)
         if not pick.empty:
             r = pick.iloc[0]
             rows.append({
                 "baseline": "Zou et al.", "trained here": "yes",
-                "coverage": 1.0, "n_scored": None,
+                "coverage": 1.0, "n_scored": _zou_n_scored(r["model"], r["regime"]),
                 "mcc": r["mcc"], "f1": r["f1"], "precision": r["precision"],
                 "recall": r["recall"], "auprc": r["auprc"],
                 "replicon_mcc": r["replicon_mcc"],

@@ -1,0 +1,5 @@
+model,regime,n_features,n_train,mcc,f1,precision,recall,specificity,auprc,auroc,mcc_tuned,f1_tuned,mcc_three_vote,replicon_mcc,train_seconds
+zou,balanced,2080,4410,0.2153,0.1534,0.0847,0.8101,0.7797,0.1805,0.8684,0.2439,0.2632,0.2212,0.8103,103.8
+zou,full,2080,79094,0.0,0.0,0.0,0.0,1.0,0.1552,0.8418,0.2023,0.2227,0.0,0.0,88.2
+zou_lengthnorm,balanced,2080,4410,0.2241,0.166,0.093,0.774,0.8099,0.1194,0.8572,0.2239,0.2263,0.2194,0.7925,60.8
+zou_lengthnorm,full,2080,79094,0.0,0.0,0.0,0.0,1.0,0.2071,0.8846,0.2796,0.2873,0.0,0.0,60.4
