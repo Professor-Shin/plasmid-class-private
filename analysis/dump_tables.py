@@ -196,7 +196,8 @@ if __name__ == "__main__":
         print("_(no baseline results yet)_")
     else:
         print(md(hl, ["baseline", "trained here", "coverage", "n_scored", "mcc", "f1",
-                      "precision", "recall", "auprc", "replicon_mcc",
+                      "precision", "recall", "specificity", "precision@1:1",
+                      "auprc", "replicon_mcc", "mcc tuned", "tuned on",
                       "real probability", "note"]))
         print("\nOne row per baseline, at the operating point its authors ship. "
               "`coverage` is the share of test fragments the tool was willing to "

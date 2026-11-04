@@ -23,12 +23,12 @@
       "n_train_fragments": 4410,
       "monitor": "val_accuracy",
       "tuned_threshold": 0.9334292411804203,
-      "regime_seconds": 103.8,
+      "regime_seconds": 96.9,
       "per_model": {
         "model0": {
           "seed": 42,
           "best_epoch": 127,
-          "train_seconds": 47.5,
+          "train_seconds": 38.2,
           "history": [
             {
               "epoch": 1,
@@ -1088,7 +1088,7 @@
         "model1": {
           "seed": 142,
           "best_epoch": 138,
-          "train_seconds": 34.8,
+          "train_seconds": 37.3,
           "history": [
             {
               "epoch": 1,
@@ -2203,7 +2203,7 @@
         "model2": {
           "seed": 242,
           "best_epoch": 46,
-          "train_seconds": 21.4,
+          "train_seconds": 21.3,
           "history": [
             {
               "epoch": 1,
@@ -2928,6 +2928,26 @@
         "fn": 296,
         "tp": 120
       },
+      "test_tuned_mcc": {
+        "threshold": 0.7759258842468262,
+        "n": 16944,
+        "n_plasmid": 416,
+        "accuracy": 0.9155453257790368,
+        "balanced_accuracy": 0.720032206418944,
+        "precision": 0.1483021483021483,
+        "recall": 0.5144230769230769,
+        "specificity": 0.9256413359148112,
+        "f1": 0.23023130715438409,
+        "mcc": 0.2439832674597342,
+        "auroc": 0.8684164750726041,
+        "auprc": 0.18054140422718973,
+        "tn": 15299,
+        "fp": 1229,
+        "fn": 202,
+        "tp": 214
+      },
+      "tuned_threshold_f1": 0.9334292411804203,
+      "tuned_threshold_mcc": 0.7759258842468262,
       "test_replicon": {
         "threshold": 0.5,
         "n": 129,
@@ -3069,12 +3089,12 @@
       "n_train_fragments": 79094,
       "monitor": "val_auprc",
       "tuned_threshold": 0.12901164591312433,
-      "regime_seconds": 88.2,
+      "regime_seconds": 86.1,
       "per_model": {
         "model0": {
           "seed": 42,
           "best_epoch": 6,
-          "train_seconds": 28.7,
+          "train_seconds": 29.0,
           "history": [
             {
               "epoch": 1,
@@ -3149,7 +3169,7 @@
         "model1": {
           "seed": 142,
           "best_epoch": 6,
-          "train_seconds": 30.6,
+          "train_seconds": 28.5,
           "history": [
             {
               "epoch": 1,
@@ -3224,7 +3244,7 @@
         "model2": {
           "seed": 242,
           "best_epoch": 6,
-          "train_seconds": 28.9,
+          "train_seconds": 28.5,
           "history": [
             {
               "epoch": 1,
@@ -3369,6 +3389,26 @@
         "fn": 310,
         "tp": 106
       },
+      "test_tuned_mcc": {
+        "threshold": 0.09297593742609024,
+        "n": 16944,
+        "n_plasmid": 416,
+        "accuracy": 0.9171978281397545,
+        "balanced_accuracy": 0.7056475258768338,
+        "precision": 0.1447084233261339,
+        "recall": 0.4831730769230769,
+        "specificity": 0.9281219748305906,
+        "f1": 0.22271468144044318,
+        "mcc": 0.23201933162949312,
+        "auroc": 0.8417635690483283,
+        "auprc": 0.15523663311746883,
+        "tn": 15340,
+        "fp": 1188,
+        "fn": 215,
+        "tp": 201
+      },
+      "tuned_threshold_f1": 0.12901164591312433,
+      "tuned_threshold_mcc": 0.09297593742609024,
       "test_replicon": {
         "threshold": 0.5,
         "n": 129,
@@ -3510,12 +3550,12 @@
       "n_train_fragments": 4410,
       "monitor": "val_accuracy",
       "tuned_threshold": 0.9987031698226929,
-      "regime_seconds": 60.8,
+      "regime_seconds": 64.0,
       "per_model": {
         "model0": {
           "seed": 42,
           "best_epoch": 46,
-          "train_seconds": 19.7,
+          "train_seconds": 20.2,
           "history": [
             {
               "epoch": 1,
@@ -4170,7 +4210,7 @@
         "model1": {
           "seed": 142,
           "best_epoch": 42,
-          "train_seconds": 19.2,
+          "train_seconds": 20.4,
           "history": [
             {
               "epoch": 1,
@@ -4805,7 +4845,7 @@
         "model2": {
           "seed": 242,
           "best_epoch": 59,
-          "train_seconds": 21.8,
+          "train_seconds": 23.2,
           "history": [
             {
               "epoch": 1,
@@ -5595,6 +5635,26 @@
         "fn": 244,
         "tp": 172
       },
+      "test_tuned_mcc": {
+        "threshold": 0.9040694212913514,
+        "n": 16944,
+        "n_plasmid": 416,
+        "accuracy": 0.8764754485363551,
+        "balanced_accuracy": 0.7503874543897535,
+        "precision": 0.11729803742583295,
+        "recall": 0.6177884615384616,
+        "specificity": 0.8829864472410455,
+        "f1": 0.1971614883007288,
+        "mcc": 0.23096066319162864,
+        "auroc": 0.8571549183436965,
+        "auprc": 0.11940327104398629,
+        "tn": 14594,
+        "fp": 1934,
+        "fn": 159,
+        "tp": 257
+      },
+      "tuned_threshold_f1": 0.9987031698226929,
+      "tuned_threshold_mcc": 0.9040694212913514,
       "test_replicon": {
         "threshold": 0.5,
         "n": 129,
@@ -5736,12 +5796,12 @@
       "n_train_fragments": 79094,
       "monitor": "val_auprc",
       "tuned_threshold": 0.21132668852806094,
-      "regime_seconds": 60.4,
+      "regime_seconds": 60.3,
       "per_model": {
         "model0": {
           "seed": 42,
           "best_epoch": 3,
-          "train_seconds": 19.3,
+          "train_seconds": 19.8,
           "history": [
             {
               "epoch": 1,
@@ -5801,7 +5861,7 @@
         "model1": {
           "seed": 142,
           "best_epoch": 2,
-          "train_seconds": 18.0,
+          "train_seconds": 17.2,
           "history": [
             {
               "epoch": 1,
@@ -5856,7 +5916,7 @@
         "model2": {
           "seed": 242,
           "best_epoch": 4,
-          "train_seconds": 23.1,
+          "train_seconds": 23.3,
           "history": [
             {
               "epoch": 1,
@@ -5991,6 +6051,26 @@
         "fn": 239,
         "tp": 177
       },
+      "test_tuned_mcc": {
+        "threshold": 0.15161191165447235,
+        "n": 16944,
+        "n_plasmid": 416,
+        "accuracy": 0.9246931067044382,
+        "balanced_accuracy": 0.7751030884652618,
+        "precision": 0.18704512372634644,
+        "recall": 0.6177884615384616,
+        "specificity": 0.932417715392062,
+        "f1": 0.28715083798882685,
+        "mcc": 0.311920994233677,
+        "auroc": 0.8846268744415072,
+        "auprc": 0.20706625797797135,
+        "tn": 15411,
+        "fp": 1117,
+        "fn": 159,
+        "tp": 257
+      },
+      "tuned_threshold_f1": 0.21132668852806094,
+      "tuned_threshold_mcc": 0.15161191165447235,
       "test_replicon": {
         "threshold": 0.5,
         "n": 129,
@@ -6129,8 +6209,8 @@
   },
   "runtime": {
     "tool": "zou",
-    "wall_seconds": 456.1,
-    "max_rss_kb": 5421068,
+    "wall_seconds": 317.5,
+    "max_rss_kb": 5420788,
     "torch_threads": 4,
     "host": "cuaim-fat-01.cuaim.hpc",
     "n_fragments_featurised": 112929,
